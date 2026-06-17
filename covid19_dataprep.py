@@ -49,3 +49,48 @@ def display_img_np_arr(img_arr):
     print(img_arr.dtype)
     print(img_arr.shape)
     print(f"Value range: [{img_arr.min()}, {img_arr.max()}]")   
+
+def get_pixel_stats(class_image_arrays):
+    '''
+    This function returns stats about the pixels once stored in a numpy array
+    '''
+    
+    stats = []
+
+    for class_name, arr in class_image_arrays.items():
+        stats.append({
+            "class": class_name,
+            "n_images": arr.shape[0],
+            "pixel_min": arr.min(),
+            "pixel_max": arr.max(),
+            "pixel_mean": arr.mean(),
+            "pixel_std": arr.std()
+        })
+
+    return pd.DataFrame(stats)
+
+def get_image_level_pixel_stats(class_image_arrays, dark_threshold=30, bright_threshold=240):
+
+    '''
+    This function returns stats about the pixel levels once stored in a numpy array
+    '''
+    
+    stats = []
+
+    for class_name, arr in class_image_arrays.items():
+        for i in range(arr.shape[0]):
+            img = arr[i]
+            
+            # Conversion simple en niveaux de gris
+            img_gray = img.mean(axis=2)
+            
+            stats.append({
+                "class": class_name,
+                "image_index": i,
+                "pixel_mean": img_gray.mean(),
+                "pixel_std": img_gray.std(),
+                "ratio_pixels_tres_sombres": (img_gray < dark_threshold).mean(),
+                "ratio_pixels_tres_clairs": (img_gray > bright_threshold).mean()
+            })
+
+    return pd.DataFrame(stats)
