@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 from tensorflow.keras.utils import load_img, img_to_array
 
 def load_img_as_np_arr(img_dir, new_size = (256,256), interp_method = 'lanczos'):
@@ -16,7 +17,8 @@ def load_img_as_np_arr(img_dir, new_size = (256,256), interp_method = 'lanczos')
         if filename.endswith(".png"): 
             img = load_img(os.path.join(img_dir, filename)
                            , target_size = new_size
-                           , interpolation = interp_method) # join(img_dir, filename) pour ça soit compatible toutes OS
+                           , interpolation = interp_method
+                           , color_mode = 'grayscale') # join(img_dir, filename) pour ça soit compatible toutes OS
             arr = img_to_array(img)
             img_arr_list.append(arr)
             continue
