@@ -260,8 +260,8 @@ else:
     print('Début chargement arrays locales...')
 
     img_array = np.load('img_array.npy')
-    cropped_img_array = np.save('cropped_img_array.npy')
-    class_array = np.save('class_array.npy')
+    cropped_img_array = np.load('cropped_img_array.npy')
+    class_array = np.load('class_array.npy')
 
     end = time.time()
     print('Fin :', round(end - start,3), 's')
