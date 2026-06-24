@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import os
-import numpy as np
 import pandas as pd
+import numpy as np
 from tensorflow.keras.utils import load_img, img_to_array
 
 def load_img_as_np_arr(img_dir, new_size = (256,256), interp_method = 'lanczos'):
@@ -43,39 +43,14 @@ def unique_np_arr(img_arr, msk_arr):
 
     return img_clean, msk_clean
 
-def display_img_np_arr(img_arr):
-    '''
-    Display the type, dimensions and minimum and maximum values of a numpy array
-    '''
-    print(type(img_arr))
-    print(img_arr.dtype)
-    print(img_arr.shape)
-    print(f"Value range: [{img_arr.min()}, {img_arr.max()}]")   
-
-def get_pixel_stats(class_image_arrays):
-    '''
-    This function returns stats about the pixels once stored in a numpy array
-    '''
-    
-    stats = []
-
-    for class_name, arr in class_image_arrays.items():
-        stats.append({
-            "class": class_name,
-            "n_images": arr.shape[0],
-            "pixel_min": arr.min(),
-            "pixel_max": arr.max(),
-            "pixel_mean": arr.mean(),
-            "pixel_std": arr.std()
-        })
-
-    return pd.DataFrame(stats)
-
-def get_image_level_pixel_stats(class_image_arrays, dark_threshold=30, bright_threshold=240):
-
-    '''
-    This function returns stats about the pixel levels once stored in a numpy array
-    '''
+def get_image_level_pixel_stats_with_ratios(class_image_arrays, dark_threshold=30, bright_threshold=240):
+    """
+    Calcule les statistiques par image :
+    - luminosité moyenne
+    - écart-type des pixels
+    - ratio de pixels très sombres
+    - ratio de pixels très clairs
+    """
     
     stats = []
 
@@ -96,3 +71,118 @@ def get_image_level_pixel_stats(class_image_arrays, dark_threshold=30, bright_th
             })
 
     return pd.DataFrame(stats)
+
+def add_ratio_thresholds_by_class(stats_df, q_ratio=0.99):
+    """
+    Ajoute les seuils de ratio sombre et clair par classe.
+    Les seuils sont calculés avec un quantile.
+    """
+    
+    df = stats_df.copy()
+    
+    df["dark_ratio_threshold"] = (
+        df.groupby("class")["ratio_pixels_tres_sombres"]
+        .transform(lambda s: s.quantile(q_ratio))
+    )
+    
+    df["bright_ratio_threshold"] = (
+        df.groupby("class")["ratio_pixels_tres_clairs"]
+        .transform(lambda s: s.quantile(q_ratio))
+    )
+    
+    return df
+
+def detect_suspicious_images_by_ratio(stats_df, q_ratio=0.99):
+    """
+    Détecte les images suspectes selon :
+    - un ratio élevé de pixels très sombres
+    - un ratio élevé de pixels très clairs
+    """
+    
+    df = add_ratio_thresholds_by_class(stats_df, q_ratio=q_ratio)
+    
+    df["is_dark_suspicious"] = (
+        df["ratio_pixels_tres_sombres"] >= df["dark_ratio_threshold"]
+    )
+    
+    df["is_bright_suspicious"] = (
+        (df["ratio_pixels_tres_clairs"] >= df["bright_ratio_threshold"]) &
+        (df["ratio_pixels_tres_clairs"] > 0)
+    )
+    
+    df["is_suspicious"] = (
+        df["is_dark_suspicious"] | df["is_bright_suspicious"]
+    )
+    
+    return df
+
+def get_suspicious_images(stats_suspicious_df):
+    """
+    Retourne 3 DataFrames :
+    - images suspectes sombres
+    - images suspectes claires
+    - toutes les images suspectes
+    """
+    
+    dark_suspicious_df = (
+        stats_suspicious_df[stats_suspicious_df["is_dark_suspicious"]]
+        .sort_values("ratio_pixels_tres_sombres", ascending=False)
+        .copy()
+    )
+    
+    bright_suspicious_df = (
+        stats_suspicious_df[stats_suspicious_df["is_bright_suspicious"]]
+        .sort_values("ratio_pixels_tres_clairs", ascending=False)
+        .copy()
+    )
+    
+    all_suspicious_df = (
+        stats_suspicious_df[stats_suspicious_df["is_suspicious"]]
+        .copy()
+    )
+    
+    return dark_suspicious_df, bright_suspicious_df, all_suspicious_df
+
+def clean_class_image_and_mask_arrays(class_image_arrays, class_mask_arrays, to_remove_df):
+    """
+    Crée une version nettoyée des images et des masks.
+    
+    Les images à supprimer sont définies dans to_remove_df avec :
+    - class
+    - image_index
+    
+    Important :
+    On supprime les mêmes indices dans les images et dans les masks.
+    """
+    
+    class_image_arrays_clean = {}
+    class_mask_arrays_clean = {}
+    
+    remove_map = (
+        to_remove_df
+        .groupby("class")["image_index"]
+        .apply(lambda s: set(s.astype(int)))
+        .to_dict()
+    )
+    
+    for class_name, img_arr in class_image_arrays.items():
+        
+        mask_arr = class_mask_arrays[class_name]
+        
+        if img_arr.shape[0] != mask_arr.shape[0]:
+            raise ValueError(
+                f"Problème pour la classe {class_name} : "
+                f"{img_arr.shape[0]} images mais {mask_arr.shape[0]} masks."
+            )
+        
+        indices_to_remove = remove_map.get(class_name, set())
+        
+        indices_to_keep = [
+            i for i in range(img_arr.shape[0])
+            if i not in indices_to_remove
+        ]
+        
+        class_image_arrays_clean[class_name] = img_arr[indices_to_keep]
+        class_mask_arrays_clean[class_name] = mask_arr[indices_to_keep]
+    
+    return class_image_arrays_clean, class_mask_arrays_clean
