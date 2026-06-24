@@ -150,4 +150,4 @@ class_array = np.concatenate([covid_class_array
 end = time.time()
 print('Fin :', round(end - start,3), 's')
 
-print(pd.DataFrame(class_array).value_counts())
+
