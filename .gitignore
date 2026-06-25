@@ -3,3 +3,7 @@ data/
 .DS_Store
 .ipynb_checkpoints/
 __pycache__/
+class_array.npy
+covid19_svm_utils.py
+cropped_img_array.npy
+img_array.npy
