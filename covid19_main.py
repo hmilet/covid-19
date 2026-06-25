@@ -245,11 +245,11 @@ if args.i:
     ##################################################
 
     start = time.time()
-    print('Début concaténation arrays...')
+    print('Début écriture fichiers...')
 
-    np.save('img_array.npy', img_array)
-    np.save('cropped_img_array.npy', cropped_img_array)
-    np.save('class_array.npy', class_array)
+    np.save('img_array.npy', img_array.astype(np.uint8))
+    np.save('cropped_img_array.npy', cropped_img_array.astype(np.uint8))
+    np.save('class_array.npy', class_array.astype(np.uint8))
 
     end = time.time()
     print('Fin :', round(end - start,3), 's')
