@@ -4,6 +4,9 @@ import pandas as pd
 import covid19_dataprep as prep
 import time
 import argparse
+import covid19_svm_utils as svm
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import make_scorer, f1_score
 
 ##################################################
 ##################################################
@@ -271,3 +274,96 @@ else:
 # train test split
 
 # data augmentation
+
+##### test SVM
+# svm_results = svm.train_evaluate_svm(
+#     X_train=X_train_augmented,
+#     y_train=y_train_augmented,
+#     X_test=X_test,
+#     y_test=y_test,
+#     scoring="f1_macro",
+#     cv=5
+# )
+# print(svm_results["macro_f1"])
+# print(svm_results["classification_report"])
+# print(svm_results["confusion_matrix"])
+
+# start = time.time()
+# print('Début test SVM...')
+# #features = img_array.reshape(img_array[100].shape[0], -1)
+# # split pour test l'algo malgré que c'est pas equilibré
+# X_train_augmented, X_test, y_train_augmented, y_test = train_test_split(img_array, class_array, test_size=0.2, random_state=66)
+# svm_results = svm.train_evaluate_svm(
+#     X_train=X_train_augmented,
+#     y_train=y_train_augmented,
+#     X_test=X_test,
+#     y_test=y_test,
+#     scoring="f1_macro",
+#     cv=5
+# )
+# print(svm_results["macro_f1"])
+# print(svm_results["classification_report"])
+# print(svm_results["confusion_matrix"])
+
+# end = time.time()
+# print('Fin :', round(end - start,3), 's')
+
+start = time.time()
+print("Début test PCA + SVM...")
+
+# split juste pour le test PCA + SVM malgré le déséquilibre des classes
+X_train, X_test, y_train, y_test = train_test_split(
+    #img_array,# test 1-5
+    cropped_img_array, #
+    class_array,
+    test_size=0.2,
+    random_state=66,
+    stratify=class_array
+)
+
+#
+covid_f1_scorer = make_scorer(
+    f1_score,
+    labels=[0],
+    average="macro",
+    zero_division=0
+)
+
+# param grid pour le pipeline
+param_grid = [
+    {
+        "pca__n_components": [200, 250, 300],
+        "svm__kernel": ["rbf"],
+        "svm__C": [7],
+        "svm__gamma": [0.001, 0.003, 0.005]
+    }
+]
+
+# test PCA + SVM
+pca_svm_results = svm.train_evaluate_pca_svm(
+    X_train=X_train,
+    y_train=y_train,
+    X_test=X_test,
+    y_test=y_test,
+    param_grid=param_grid,
+    #scoring="f1_macro",# test 1 avec f1 score macro = avg f1 score de toutes les classes
+    scoring=covid_f1_scorer,# test 2 avec f1 score pour la classe covid
+    cv=3,
+    n_jobs=1,
+    verbose=1
+)
+
+print("Best params :", pca_svm_results["best_params"])
+print("Best CV score :", pca_svm_results["best_cv_score"])
+print("Variance expliquée PCA :", pca_svm_results["explained_variance_ratio"])
+
+print("Accuracy :", pca_svm_results["accuracy"])
+print("Macro precision :", pca_svm_results["macro_precision"])
+print("Macro recall :", pca_svm_results["macro_recall"])
+print("Macro F1 :", pca_svm_results["macro_f1"])
+
+print(pca_svm_results["classification_report"])
+print(pca_svm_results["confusion_matrix"])
+
+end = time.time()
+print("Fin :", round(end - start, 3), "s")
