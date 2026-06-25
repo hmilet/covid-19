@@ -443,7 +443,9 @@ def train_evaluate_pca_svm(
         n_jobs=n_jobs,
         verbose=verbose,
         refit=True,
-        return_train_score=True
+        #return_train_score=True
+        return_train_score=False, # pour eviter les warning memoire
+        pre_dispatch="1*n_jobs"  # pour eviter les warning memoire
     )
 
     grid_search.fit(X_train, y_train)
@@ -570,3 +572,176 @@ def train_evaluate_pca_svm(
     }
 
     return results
+
+from sklearn.metrics import make_scorer, f1_score
+import time
+import covid19_svm_utils as svm
+
+
+def test_pca_svm(
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    scoring_mode="covid",
+    cv=3,
+    n_jobs=1,
+    verbose=1
+):
+    """
+    Teste un modèle PCA + SVM sur les images de radiographie.
+
+    Objectif :
+    - Réduire la dimension des images avec PCA.
+    - Entraîner un SVM avec kernel RBF.
+    - Chercher les meilleurs paramètres avec GridSearchCV.
+    - Évaluer le modèle sur le jeu de test.
+
+    Paramètres
+    ----------
+    X_train : array-like
+        Images d'entraînement.
+        Peut être sous forme :
+        - (n_images, hauteur, largeur, canaux)
+        - ou déjà aplatie : (n_images, n_features)
+
+    y_train : array-like
+        Labels d'entraînement.
+
+    X_test : array-like
+        Images de test.
+
+    y_test : array-like
+        Labels de test.
+
+    scoring_mode : str
+        Métrique utilisée pour choisir le meilleur modèle.
+        
+        - "covid" : optimise le F1-score de la classe COVID uniquement.
+        - "macro" : optimise le F1-score macro sur les 4 classes.
+
+    cv : int
+        Nombre de folds pour la validation croisée.
+
+    n_jobs : int
+        Nombre de cœurs utilisés par GridSearchCV.
+        Pour éviter les problèmes mémoire, on garde n_jobs=1.
+
+    verbose : int
+        Niveau d'affichage de GridSearchCV.
+
+    Retour
+    ------
+    pca_svm_results : dict
+        Dictionnaire contenant :
+        - best_model
+        - best_params
+        - best_cv_score
+        - explained_variance_ratio
+        - accuracy
+        - macro_precision
+        - macro_recall
+        - macro_f1
+        - classification_report
+        - confusion_matrix
+        - cv_results
+        - y_pred
+    """
+
+    start = time.time()
+    print("Début test PCA + SVM...")
+
+    # --------------------------------------------------
+    # 1. Choix de la métrique de validation croisée
+    # --------------------------------------------------
+    # Ici, on peut choisir entre :
+    # - F1-score COVID uniquement
+    # - F1-score macro sur toutes les classes
+
+    if scoring_mode == "covid":
+        # Optimisation du F1-score uniquement pour la classe COVID.
+        # La classe COVID correspond au label 0.
+        scoring = make_scorer(
+            f1_score,
+            labels=[0],
+            average="macro",
+            zero_division=0
+        )
+
+    elif scoring_mode == "macro":
+        # Optimisation du F1-score moyen sur les 4 classes.
+        scoring = "f1_macro"
+
+    else:
+        raise ValueError("scoring_mode doit être 'covid' ou 'macro'.")
+
+    # --------------------------------------------------
+    # 2. Grille de paramètres PCA + SVM
+    # --------------------------------------------------
+    # pca__n_components = 150 :
+    # on garde 150 composantes principales.
+    #
+    # svm__kernel = "rbf" :
+    # kernel non linéaire adapté si les classes ne sont pas séparables linéairement.
+    #
+    # svm__C :
+    # contrôle la régularisation.
+    # Plus C est grand, plus le modèle essaie de bien classer les points d'entraînement.
+    #
+    # svm__gamma :
+    # contrôle l'influence d'un point d'entraînement.
+    # Plus gamma est grand, plus le modèle devient local et risque de sur-apprendre.
+
+    param_grid = [
+        {
+            "pca__n_components": [150],
+            "svm__kernel": ["rbf"],
+            "svm__C": [0.5, 1, 2, 5],
+            "svm__gamma": ["scale", 0.0005, 0.001, 0.005]
+        }
+    ]
+
+    # --------------------------------------------------
+    # 3. Entraînement + évaluation PCA + SVM
+    # --------------------------------------------------
+
+    pca_svm_results = svm.train_evaluate_pca_svm(
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test,
+        param_grid=param_grid,
+        scoring=scoring,
+        cv=cv,
+        n_jobs=n_jobs,
+        verbose=verbose
+    )
+
+    # --------------------------------------------------
+    # 4. Affichage des meilleurs paramètres
+    # --------------------------------------------------
+
+    print("Best params :", pca_svm_results["best_params"])
+    print("Best CV score :", pca_svm_results["best_cv_score"])
+    print("Variance expliquée PCA :", pca_svm_results["explained_variance_ratio"])
+
+    # --------------------------------------------------
+    # 5. Affichage des métriques globales
+    # --------------------------------------------------
+
+    print("Accuracy :", pca_svm_results["accuracy"])
+    print("Macro precision :", pca_svm_results["macro_precision"])
+    print("Macro recall :", pca_svm_results["macro_recall"])
+    print("Macro F1 :", pca_svm_results["macro_f1"])
+
+    # --------------------------------------------------
+    # 6. Affichage du rapport détaillé
+    # --------------------------------------------------
+
+    print(pca_svm_results["classification_report"])
+    print(pca_svm_results["confusion_matrix"])
+
+    end = time.time()
+    print("Fin :", round(end - start, 3), "s")
+
+    return pca_svm_results
