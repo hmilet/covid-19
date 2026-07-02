@@ -5,8 +5,11 @@ import covid19_dataprep as prep
 import time
 import argparse
 import covid19_svm_utils as svm
+import covid19_randomforest_utils as randomforest
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer, f1_score
+import tensorflow as tf
+from tensorflow.keras import layers
 
 ##################################################
 ##################################################
@@ -274,8 +277,8 @@ else:
     # train test split
     # split juste pour le test PCA + SVM malgré le déséquilibre des classes
     X_train, X_test, y_train, y_test = train_test_split(
-        img_array,# test 1-5
-        #cropped_img_array, #
+        #img_array,# test 1-5
+        cropped_img_array, #
         class_array,
         test_size=0.2,
         random_state=66,
@@ -284,17 +287,95 @@ else:
     
     # data augmentation
 
-    ##### test SVM
-    pca_svm_results = svm.test_pca_svm(
-                            X_train=X_train,
-                            y_train=y_train,
+    start = time.time()
+    print("Génération des données augmentées en cours...")
+
+    data_augmentation = tf.keras.Sequential([
+        layers.RandomFlip("horizontal_and_vertical"),
+        layers.RandomRotation(factor=0.15),
+        layers.RandomZoom(height_factor=0.1, width_factor=0.1),
+        layers.RandomContrast(factor=0.1),
+    ])
+
+    y_train_flat = y_train.flatten()
+    mask_covid = (y_train_flat == 0)
+    mask_lung_opa = (y_train_flat == 1)
+    mask_normal = (y_train_flat == 2)
+    mask_pneumo = (y_train_flat == 3)
+
+    X_covid, y_covid = X_train[mask_covid], y_train[mask_covid]
+    X_lung_opa, y_lung_opa = X_train[mask_lung_opa], y_train[mask_lung_opa]
+    X_normal, y_normal = X_train[mask_normal], y_train[mask_normal]
+    X_pneumo, y_pneumo = X_train[mask_pneumo], y_train[mask_pneumo]
+
+    # Size to match for other classes
+    target_size = len(X_normal)
+
+    X_normal_res, y_normal_res = X_normal, y_train[mask_normal] # Inchangée
+    X_covid_res, y_covid_res = prep.augmenter_classe_numpy(X_covid, y_train, y_train_flat, 0, target_size, data_augmentation)
+    X_lung_opa_res, y_lung_opa_res = prep.augmenter_classe_numpy(X_lung_opa, y_train, y_train_flat, 1, target_size, data_augmentation)
+    X_pneumo_res, y_pneumo_res = prep.augmenter_classe_numpy(X_pneumo, y_train, y_train_flat, 3, target_size, data_augmentation)
+
+    print(X_normal_res.shape)
+    print(X_covid_res.shape)
+    print(X_lung_opa_res.shape)
+    print(X_pneumo_res.shape)
+
+    X_train_balanced = np.concatenate([X_normal_res, X_covid_res, X_lung_opa_res, X_pneumo_res], axis=0)
+    y_train_balanced = np.concatenate([y_normal_res, y_covid_res, y_lung_opa_res, y_pneumo_res], axis=0)
+
+    # Reshuffle of indexes
+    indexes = np.arange(len(X_train_balanced))
+    np.random.shuffle(indexes)
+
+    X_train_balanced = X_train_balanced[indexes]
+    y_train_balanced = y_train_balanced[indexes]
+
+    end = time.time()
+    print("Fin :", round(end - start, 3), "s")
+
+    #### test RandomForestClassifier
+
+    start = time.time()
+    print('Début PCA + RF...')
+
+    random_forest_results = randomforest.train_evaluate_pca_randomforest(
+                            X_train=X_train_balanced,
+                            y_train=y_train_balanced,
                             X_test=X_test,
                             y_test=y_test,
-                            scoring_mode="covid",
+                            #scoring_mode="covid",
                             cv=3,
-                            n_jobs=3,
-                            verbose=1
+                            n_jobs=-1,
+                            verbose=2
                         )
+    
+    print("Best params :", random_forest_results["best_params"])
+    print("Best CV score :", random_forest_results["best_cv_score"])
+    print("Variance expliquée PCA :", random_forest_results["explained_variance_ratio"])
+
+    print("Accuracy :", random_forest_results["accuracy"])
+    print("Macro precision :", random_forest_results["macro_precision"])
+    print("Macro recall :", random_forest_results["macro_recall"])
+    print("Macro F1 :", random_forest_results["macro_f1"])
+
+    print(random_forest_results["classification_report"])
+    print(random_forest_results["confusion_matrix"])
+
+    end = time.time()
+    print("Fin :", round(end - start, 3), "s")
+
+    ##### test SVM
+    # pca_svm_results = svm.test_pca_svm(
+    #                         X_train=X_train,
+    #                         y_train=y_train,
+    #                         X_test=X_test,
+    #                         y_test=y_test,
+    #                         scoring_mode="covid",
+    #                         cv=3,
+    #                         n_jobs=3,
+    #                         verbose=1
+    #                     )
     # start = time.time()
     # print("Début test PCA + SVM...")
 

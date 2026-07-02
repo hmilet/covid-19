@@ -186,3 +186,37 @@ def clean_class_image_and_mask_arrays(class_image_arrays, class_mask_arrays, to_
         class_mask_arrays_clean[class_name] = mask_arr[indices_to_keep]
     
     return class_image_arrays_clean, class_mask_arrays_clean
+
+
+def augmenter_classe_numpy(X_class, y_train, y_train_flat, label_value, target_size, data_augmentation):
+    """
+    Génère un array NumPy augmenté pour atteindre exactement la taille cible.
+    """
+    actual_number_images = len(X_class)
+    number_to_generate = target_size - actual_number_images
+    
+    augmented_images = []
+    
+    # Looping until target size is matched
+    while len(augmented_images) < number_to_generate:
+        # Random picking
+        idx = np.random.randint(0, actual_number_images)
+        img = X_class[idx]
+        
+        img_batch = np.expand_dims(img, axis=0)
+        
+        # Augmenting / training = True for randomness
+        img_aug = data_augmentation(img_batch, training=True)
+        
+        # Stripping dimensions
+        augmented_images.append(img_aug[0].numpy())
+        
+    # Numpy array conversions
+    X_aug = np.array(augmented_images)
+    y_aug = np.full((len(X_aug)), label_value) # Crée les labels correspondants
+    
+    # Concatenate all the images
+    X_final = np.concatenate([X_class, X_aug], axis=0)
+    y_final = np.concatenate([y_train[y_train_flat == label_value], y_aug], axis=0)
+    
+    return X_final, y_final
