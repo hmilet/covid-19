@@ -272,10 +272,6 @@ else:
     end = time.time()
     print('Fin :', round(end - start,3), 's')
 
-
-
-    # train test split
-    # split juste pour le test PCA + SVM malgré le déséquilibre des classes
     X_train, X_test, y_train, y_test = train_test_split(
         #img_array,# test 1-5
         cropped_img_array, #
@@ -285,13 +281,15 @@ else:
         stratify=class_array
     )
     
-    # data augmentation
+    ##################################################
+    # Data augmentation
+    ##################################################
 
     start = time.time()
     print("Génération des données augmentées en cours...")
 
     data_augmentation = tf.keras.Sequential([
-        layers.RandomFlip("horizontal_and_vertical"),
+        #layers.RandomFlip("horizontal_and_vertical"),
         layers.RandomRotation(factor=0.15),
         layers.RandomZoom(height_factor=0.1, width_factor=0.1),
         layers.RandomContrast(factor=0.1),
@@ -334,36 +332,42 @@ else:
     end = time.time()
     print("Fin :", round(end - start, 3), "s")
 
-    #### test RandomForestClassifier
+    ##################################################
+    # CNN
+    ##################################################
 
-    start = time.time()
-    print('Début PCA + RF...')
 
-    random_forest_results = randomforest.train_evaluate_pca_randomforest(
-                            X_train=X_train_balanced,
-                            y_train=y_train_balanced,
-                            X_test=X_test,
-                            y_test=y_test,
-                            #scoring_mode="covid",
-                            cv=3,
-                            n_jobs=-1,
-                            verbose=2
-                        )
+
+    # #### test RandomForestClassifier
+
+    # start = time.time()
+    # print('Début PCA + RF...')
+
+    # random_forest_results = randomforest.train_evaluate_pca_randomforest(
+    #                         X_train=X_train_balanced,
+    #                         y_train=y_train_balanced,
+    #                         X_test=X_test,
+    #                         y_test=y_test,
+    #                         #scoring_mode="covid",
+    #                         cv=3,
+    #                         n_jobs=-1,
+    #                         verbose=2
+    #                     )
     
-    print("Best params :", random_forest_results["best_params"])
-    print("Best CV score :", random_forest_results["best_cv_score"])
-    print("Variance expliquée PCA :", random_forest_results["explained_variance_ratio"])
+    # print("Best params :", random_forest_results["best_params"])
+    # print("Best CV score :", random_forest_results["best_cv_score"])
+    # print("Variance expliquée PCA :", random_forest_results["explained_variance_ratio"])
 
-    print("Accuracy :", random_forest_results["accuracy"])
-    print("Macro precision :", random_forest_results["macro_precision"])
-    print("Macro recall :", random_forest_results["macro_recall"])
-    print("Macro F1 :", random_forest_results["macro_f1"])
+    # print("Accuracy :", random_forest_results["accuracy"])
+    # print("Macro precision :", random_forest_results["macro_precision"])
+    # print("Macro recall :", random_forest_results["macro_recall"])
+    # print("Macro F1 :", random_forest_results["macro_f1"])
 
-    print(random_forest_results["classification_report"])
-    print(random_forest_results["confusion_matrix"])
+    # print(random_forest_results["classification_report"])
+    # print(random_forest_results["confusion_matrix"])
 
-    end = time.time()
-    print("Fin :", round(end - start, 3), "s")
+    # end = time.time()
+    # print("Fin :", round(end - start, 3), "s")
 
     ##### test SVM
     # pca_svm_results = svm.test_pca_svm(

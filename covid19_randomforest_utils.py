@@ -181,7 +181,10 @@ def train_evaluate_pca_randomforest(
         ),
         (
             "rf",
-            RandomForestClassifier(random_state=random_state)
+            RandomForestClassifier(
+                random_state=random_state
+                , class_weight='balanced'
+            )
         )
     ])
 
