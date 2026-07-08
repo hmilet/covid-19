@@ -364,7 +364,7 @@ def train_evaluate_pca_svm(
 
     Étapes :
     1. Flatten des images si besoin
-    2. Normalisation simple en float32
+    2. Normalisation simple en float16
     3. PCA pour réduire la dimension
     4. SVM
     5. GridSearchCV
@@ -377,8 +377,8 @@ def train_evaluate_pca_svm(
     X_train = flatten_if_needed(X_train)
     X_test = flatten_if_needed(X_test)
 
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
+    X_train = X_train.astype(np.float16)
+    X_test = X_test.astype(np.float16)
 
     # Si les pixels sont entre 0 et 255, on normalise entre 0 et 1
     if X_train.max() > 1:
@@ -419,7 +419,7 @@ def train_evaluate_pca_svm(
         ),
         (
             "svm",
-            SVC()
+            SVC(class_weight="balanced")
         )
     ])
 
