@@ -1,4 +1,5 @@
 data/
+archive.zip
 .venv/
 .DS_Store
 .ipynb_checkpoints/
@@ -7,3 +8,4 @@ class_array.npy
 covid19_svm_utils.py
 cropped_img_array.npy
 img_array.npy
+cuda-keyring_1.1-1_all.deb

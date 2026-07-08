@@ -6,10 +6,12 @@ import time
 import argparse
 import covid19_svm_utils as svm
 import covid19_randomforest_utils as randomforest
+import covid19_cnn_utils as cnn
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer, f1_score
 import tensorflow as tf
 from tensorflow.keras import layers
+
 
 ##################################################
 ##################################################
@@ -273,8 +275,8 @@ else:
     print('Fin :', round(end - start,3), 's')
 
     X_train, X_test, y_train, y_test = train_test_split(
-        #img_array,# test 1-5
-        cropped_img_array, #
+        img_array,# test 1-5
+        #cropped_img_array, #
         class_array,
         test_size=0.2,
         random_state=66,
@@ -314,11 +316,6 @@ else:
     X_lung_opa_res, y_lung_opa_res = prep.augmenter_classe_numpy(X_lung_opa, y_train, y_train_flat, 1, target_size, data_augmentation)
     X_pneumo_res, y_pneumo_res = prep.augmenter_classe_numpy(X_pneumo, y_train, y_train_flat, 3, target_size, data_augmentation)
 
-    print(X_normal_res.shape)
-    print(X_covid_res.shape)
-    print(X_lung_opa_res.shape)
-    print(X_pneumo_res.shape)
-
     X_train_balanced = np.concatenate([X_normal_res, X_covid_res, X_lung_opa_res, X_pneumo_res], axis=0)
     y_train_balanced = np.concatenate([y_normal_res, y_covid_res, y_lung_opa_res, y_pneumo_res], axis=0)
 
@@ -326,8 +323,8 @@ else:
     indexes = np.arange(len(X_train_balanced))
     np.random.shuffle(indexes)
 
-    X_train_balanced = X_train_balanced[indexes]
-    y_train_balanced = y_train_balanced[indexes]
+    X_train = X_train_balanced[indexes]
+    y_train = y_train_balanced[indexes]
 
     end = time.time()
     print("Fin :", round(end - start, 3), "s")
@@ -336,7 +333,22 @@ else:
     # CNN
     ##################################################
 
+    start = time.time()
+    print("Entraînement du CNN...")
 
+    cnn.train_evaluate_cnn_model(
+        X_train = X_train,
+        y_train = y_train,
+        X_test =  X_test,
+        y_test = y_test,
+        input_shape = (256,256,1), 
+        target_size = (256,256,1),
+        epochs = 500,
+        batch_size = 64
+    )
+
+    end = time.time()
+    print("Fin :", round(end - start, 3), "s")
 
     # #### test RandomForestClassifier
 

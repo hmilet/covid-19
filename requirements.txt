@@ -1,5 +1,4 @@
 absl-py==2.4.0
-appnope==0.1.4
 asttokens==3.0.1
 astunparse==1.6.3
 certifi==2026.5.20
@@ -37,6 +36,18 @@ namex==0.1.0
 narwhals==2.22.1
 nest-asyncio==1.6.0
 numpy==2.4.6
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cuda-cupti-cu12==12.9.79
+nvidia-cuda-nvcc-cu12==12.9.86
+nvidia-cuda-nvrtc-cu12==12.9.86
+nvidia-cuda-runtime-cu12==12.9.79
+nvidia-cudnn-cu12==9.24.0.43
+nvidia-cufft-cu12==11.4.1.4
+nvidia-curand-cu12==10.3.10.19
+nvidia-cusolver-cu12==11.7.5.82
+nvidia-cusparse-cu12==12.5.10.65
+nvidia-nccl-cu12==2.30.7
+nvidia-nvjitlink-cu12==12.9.86
 opt-einsum==3.4.0
 optree==0.19.1
 packaging==26.2
@@ -44,7 +55,6 @@ pandas==3.0.3
 parso==0.8.7
 pexpect==4.9.0
 pillow==12.2.0
-pip==25.0.1
 platformdirs==4.10.0
 prompt-toolkit==3.0.52
 protobuf==7.35.0
