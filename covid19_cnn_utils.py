@@ -196,14 +196,15 @@ def train_cnn_model(
     input_shape,
     target_size,
     epochs,
-    batch_size
+    batch_size,
+    patience
 ):
     
     cnn_model = create_cnn_model(input_shape, target_size)
 
     early_stopping = EarlyStopping(
         monitor='val_loss',       # On surveille la perte sur les données de validation
-        patience=50,              # Si pendant X epochs consécutives la perte ne baisse plus, on arrête
+        patience=patience,        # Si pendant X epochs consécutives la perte ne baisse plus, on arrête
         restore_best_weights=True # récupère les meilleurs poids, pas ceux de la dernière epoch
     )
 

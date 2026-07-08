@@ -369,7 +369,8 @@ else:
             input_shape = (256,256,1), 
             target_size = (256,256,1),
             epochs = 500,
-            batch_size = 64
+            batch_size = 64,
+            patience = 50
         )
 
         with open('model.pickle', 'wb') as handle:
