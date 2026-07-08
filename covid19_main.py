@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer, f1_score
 import tensorflow as tf
 from tensorflow.keras import layers
+import pickle
 
 
 ##################################################
@@ -25,6 +26,9 @@ parser = argparse.ArgumentParser(description="Covid-19 X-ray classification")
 
 parser.add_argument('-i', action='store_true', help="For a first run to preprocess and save the data on the disk")
 parser.add_argument('-o', action='store_true', help="To add the outlier treatment based on quantiles")
+parser.add_argument('-d', action='store_true', help="Generate the X train and y train objects and write them as files")
+parser.add_argument('-t', action='store_true', help="Allows the model to train ; else will try to load from a file")
+
 
 args = parser.parse_args()
 
@@ -263,92 +267,138 @@ if args.i:
     print('Fin :', round(end - start,3), 's')
 
 else:
-
-    start = time.time()
-    print('Début chargement arrays locales...')
-
-    img_array = np.load('img_array.npy')
-    cropped_img_array = np.load('cropped_img_array.npy')
-    class_array = np.load('class_array.npy')
-
-    end = time.time()
-    print('Fin :', round(end - start,3), 's')
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        img_array,# test 1-5
-        #cropped_img_array, #
-        class_array,
-        test_size=0.2,
-        random_state=66,
-        stratify=class_array
-    )
     
-    ##################################################
-    # Data augmentation
-    ##################################################
+    if args.d:
 
-    start = time.time()
-    print("Génération des données augmentées en cours...")
+        ##################################################
+        # Data augmentation
+        ##################################################
 
-    data_augmentation = tf.keras.Sequential([
-        #layers.RandomFlip("horizontal_and_vertical"),
-        layers.RandomRotation(factor=0.15),
-        layers.RandomZoom(height_factor=0.1, width_factor=0.1),
-        layers.RandomContrast(factor=0.1),
-    ])
+        start = time.time()
+        print('Début chargement arrays locales...')
 
-    y_train_flat = y_train.flatten()
-    mask_covid = (y_train_flat == 0)
-    mask_lung_opa = (y_train_flat == 1)
-    mask_normal = (y_train_flat == 2)
-    mask_pneumo = (y_train_flat == 3)
+        img_array = np.load('img_array.npy')
+        cropped_img_array = np.load('cropped_img_array.npy')
+        class_array = np.load('class_array.npy')
 
-    X_covid, y_covid = X_train[mask_covid], y_train[mask_covid]
-    X_lung_opa, y_lung_opa = X_train[mask_lung_opa], y_train[mask_lung_opa]
-    X_normal, y_normal = X_train[mask_normal], y_train[mask_normal]
-    X_pneumo, y_pneumo = X_train[mask_pneumo], y_train[mask_pneumo]
+        end = time.time()
+        print('Fin :', round(end - start,3), 's')
 
-    # Size to match for other classes
-    target_size = len(X_normal)
+        X_train, X_test, y_train, y_test = train_test_split(
+            #img_array,# test 1-5
+            cropped_img_array,
+            class_array,
+            test_size=0.2,
+            random_state=66,
+            stratify=class_array
+        )
 
-    X_normal_res, y_normal_res = X_normal, y_train[mask_normal] # Inchangée
-    X_covid_res, y_covid_res = prep.augmenter_classe_numpy(X_covid, y_train, y_train_flat, 0, target_size, data_augmentation)
-    X_lung_opa_res, y_lung_opa_res = prep.augmenter_classe_numpy(X_lung_opa, y_train, y_train_flat, 1, target_size, data_augmentation)
-    X_pneumo_res, y_pneumo_res = prep.augmenter_classe_numpy(X_pneumo, y_train, y_train_flat, 3, target_size, data_augmentation)
+        start = time.time()
+        print("Génération des données augmentées en cours...")
 
-    X_train_balanced = np.concatenate([X_normal_res, X_covid_res, X_lung_opa_res, X_pneumo_res], axis=0)
-    y_train_balanced = np.concatenate([y_normal_res, y_covid_res, y_lung_opa_res, y_pneumo_res], axis=0)
+        data_augmentation = tf.keras.Sequential([
+            #layers.RandomFlip("horizontal_and_vertical"),
+            layers.RandomRotation(factor=0.15),
+            layers.RandomZoom(height_factor=0.1, width_factor=0.1),
+            layers.RandomContrast(factor=0.1),
+        ])
 
-    # Reshuffle of indexes
-    indexes = np.arange(len(X_train_balanced))
-    np.random.shuffle(indexes)
+        y_train_flat = y_train.flatten()
+        mask_covid = (y_train_flat == 0)
+        mask_lung_opa = (y_train_flat == 1)
+        mask_normal = (y_train_flat == 2)
+        mask_pneumo = (y_train_flat == 3)
 
-    X_train = X_train_balanced[indexes]
-    y_train = y_train_balanced[indexes]
+        X_covid, y_covid = X_train[mask_covid], y_train[mask_covid]
+        X_lung_opa, y_lung_opa = X_train[mask_lung_opa], y_train[mask_lung_opa]
+        X_normal, y_normal = X_train[mask_normal], y_train[mask_normal]
+        X_pneumo, y_pneumo = X_train[mask_pneumo], y_train[mask_pneumo]
 
-    end = time.time()
-    print("Fin :", round(end - start, 3), "s")
+        # Size to match for other classes
+        target_size = len(X_normal)
 
-    ##################################################
-    # CNN
-    ##################################################
+        X_normal_res, y_normal_res = X_normal, y_train[mask_normal] # Inchangée
+        X_covid_res, y_covid_res = prep.augmenter_classe_numpy(X_covid, y_train, y_train_flat, 0, target_size, data_augmentation)
+        X_lung_opa_res, y_lung_opa_res = prep.augmenter_classe_numpy(X_lung_opa, y_train, y_train_flat, 1, target_size, data_augmentation)
+        X_pneumo_res, y_pneumo_res = prep.augmenter_classe_numpy(X_pneumo, y_train, y_train_flat, 3, target_size, data_augmentation)
 
-    start = time.time()
-    print("Entraînement du CNN...")
+        X_train_balanced = np.concatenate([X_normal_res, X_covid_res, X_lung_opa_res, X_pneumo_res], axis=0)
+        y_train_balanced = np.concatenate([y_normal_res, y_covid_res, y_lung_opa_res, y_pneumo_res], axis=0)
 
-    cnn.train_evaluate_cnn_model(
-        X_train = X_train,
-        y_train = y_train,
-        X_test =  X_test,
-        y_test = y_test,
-        input_shape = (256,256,1), 
-        target_size = (256,256,1),
-        epochs = 500,
-        batch_size = 64
+        # Reshuffle of indexes
+        indexes = np.arange(len(X_train_balanced))
+        np.random.shuffle(indexes)
+
+        X_train = X_train_balanced[indexes]
+        y_train = y_train_balanced[indexes]
+
+        with open('xtest.pickle', 'wb') as handle:
+            pickle.dump(X_test, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('ytest.pickle', 'wb') as handle:
+            pickle.dump(y_test, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('xtrain.pickle', 'wb') as handle:
+            pickle.dump(X_train, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open('ytrain.pickle', 'wb') as handle:
+            pickle.dump(y_train, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        end = time.time()
+        print("Fin :", round(end - start, 3), "s")
+
+    if not args.d:
+        with open('xtest.pickle', 'rb') as handle:
+            X_test = pickle.load(handle)
+        with open('ytest.pickle', 'rb') as handle:
+            y_test = pickle.load(handle)
+        with open('xtrain.pickle', 'rb') as handle:
+            X_train = pickle.load(handle)
+        with open('ytrain.pickle', 'rb') as handle:
+            y_train = pickle.load(handle)
+
+    if args.t :
+
+        ##################################################
+        # CNN
+        ##################################################
+
+        start = time.time()
+        print("Entraînement du CNN...")
+
+        model = cnn.train_cnn_model(
+            X_train = X_train,
+            y_train = y_train,
+            input_shape = (256,256,1), 
+            target_size = (256,256,1),
+            epochs = 500,
+            batch_size = 64
+        )
+
+        with open('model.pickle', 'wb') as handle:
+            pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        end = time.time()
+        print("Fin :", round(end - start, 3), "s")
+
+    if not args.t :
+
+        start = time.time()
+        print("Chargement du modèle...")
+
+        with open('model.pickle', 'rb') as handle:
+            model = pickle.load(handle)
+        with open('xtest.pickle', 'rb') as handle:
+            X_test = pickle.load(handle)
+        with open('ytest.pickle', 'rb') as handle:
+            y_test = pickle.load(handle)
+
+        end = time.time()
+        print("Fin :", round(end - start, 3), "s")
+
+
+    cnn.evaluate_cnn_model(
+        model = model,
+        X_test = X_test,
+        y_test = y_test
     )
-
-    end = time.time()
-    print("Fin :", round(end - start, 3), "s")
 
     # #### test RandomForestClassifier
 
