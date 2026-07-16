@@ -7,6 +7,7 @@ import argparse
 import covid19_svm_utils as svm
 import covid19_randomforest_utils as randomforest
 import covid19_cnn_utils as cnn
+import covid19_efficientnet_utils as efficientnet
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer, f1_score
 import tensorflow as tf
@@ -28,6 +29,8 @@ parser.add_argument('-i', action='store_true', help="For a first run to preproce
 parser.add_argument('-o', action='store_true', help="To add the outlier treatment based on quantiles")
 parser.add_argument('-d', action='store_true', help="Generate the X train and y train objects and write them as files")
 parser.add_argument('-t', action='store_true', help="Allows the model to train ; else will try to load from a file")
+parser.add_argument('-c', action='store_true', help="CNN model")
+parser.add_argument('-e', action='store_true', help="EfficientNetB2 model")
 
 
 args = parser.parse_args()
@@ -354,52 +357,108 @@ else:
         with open('ytrain.pickle', 'rb') as handle:
             y_train = pickle.load(handle)
 
-    if args.t :
+    if args.c :
 
-        ##################################################
-        # CNN
-        ##################################################
+        if args.t :
 
-        start = time.time()
-        print("Entraînement du CNN...")
+            ##################################################
+            # CNN
+            ##################################################
 
-        model = cnn.train_cnn_model(
-            X_train = X_train,
-            y_train = y_train,
-            input_shape = (256,256,1), 
-            target_size = (256,256,1),
-            epochs = 500,
-            batch_size = 64,
-            patience = 50
+            start = time.time()
+            print("Entraînement du CNN...")
+
+            model = cnn.train_cnn_model(
+                X_train = X_train,
+                y_train = y_train,
+                y = class_array,
+                input_shape = (256,256,1), 
+                target_size = (256,256,1),
+                epochs = 500,
+                batch_size = 64,
+                patience = 50
+            )
+
+            with open('model.pickle', 'wb') as handle:
+                pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            end = time.time()
+            print("Fin :", round(end - start, 3), "s")
+
+        if not args.t :
+
+            start = time.time()
+            print("Chargement du modèle...")
+
+            with open('model.pickle', 'rb') as handle:
+                model = pickle.load(handle)
+            with open('xtest.pickle', 'rb') as handle:
+                X_test = pickle.load(handle)
+            with open('ytest.pickle', 'rb') as handle:
+                y_test = pickle.load(handle)
+
+            end = time.time()
+            print("Fin :", round(end - start, 3), "s")
+
+
+        cnn.evaluate_cnn_model(
+            model = model,
+            X_test = X_test,
+            y_test = y_test
         )
 
-        with open('model.pickle', 'wb') as handle:
-            pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if args.e :
+              
+        if args.t :
 
-        end = time.time()
-        print("Fin :", round(end - start, 3), "s")
+            ##################################################
+            # EfficientNetB2
+            ##################################################
 
-    if not args.t :
+            start = time.time()
+            print("Entraînement de l'EfficientNetB2...")
 
-        start = time.time()
-        print("Chargement du modèle...")
+            model, base_model = efficientnet.train_efficientnet_model(
+                X_train = X_train,
+                y_train = y_train,
+                # y = class_array,
+                input_shape = (256,256,1), 
+                epochs = 100,
+                batch_size = 32,
+                patience = 30
+            )
 
-        with open('model.pickle', 'rb') as handle:
-            model = pickle.load(handle)
-        with open('xtest.pickle', 'rb') as handle:
-            X_test = pickle.load(handle)
-        with open('ytest.pickle', 'rb') as handle:
-            y_test = pickle.load(handle)
+            with open('eff_model.pickle', 'wb') as handle:
+                pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open('eff_bmodel.pickle', 'wb') as handle:
+                pickle.dump(base_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        end = time.time()
-        print("Fin :", round(end - start, 3), "s")
+            end = time.time()
+            print("Fin :", round(end - start, 3), "s")
+
+        if not args.t :
+
+            start = time.time()
+            print("Chargement du modèle...")
+
+            with open('eff_model.pickle', 'rb') as handle:
+                model = pickle.load(handle)
+            with open('eff_bmodel.pickle', 'rb') as handle:
+                base_model = pickle.load(handle)
+            with open('xtest.pickle', 'rb') as handle:
+                X_test = pickle.load(handle)
+            with open('ytest.pickle', 'rb') as handle:
+                y_test = pickle.load(handle)
+
+            end = time.time()
+            print("Fin :", round(end - start, 3), "s")
 
 
-    cnn.evaluate_cnn_model(
-        model = model,
-        X_test = X_test,
-        y_test = y_test
-    )
+        efficientnet.evaluate_efficientnet_model(
+            model = model,
+            X_test = X_test,
+            y_test = y_test
+        )  
 
     # #### test RandomForestClassifier
 

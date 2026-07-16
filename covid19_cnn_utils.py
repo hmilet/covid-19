@@ -5,6 +5,7 @@ import numpy as np
 from sklearn import metrics
 import matplotlib.pyplot as plt
 import cv2
+from sklearn.utils.class_weight import compute_class_weight
 
 
 
@@ -193,6 +194,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
 def train_cnn_model(
     X_train,
     y_train,
+    # y, 
     input_shape,
     target_size,
     epochs,
@@ -208,7 +210,16 @@ def train_cnn_model(
         restore_best_weights=True # récupère les meilleurs poids, pas ceux de la dernière epoch
     )
 
-    training_history_cnn = cnn_model.fit(X_train, y_train, validation_split = 0.2, epochs = epochs, batch_size = batch_size, callbacks = [early_stopping])
+    # weights = compute_class_weight(class_weight = 'balanced', classes = np.unique(y), y = y)
+
+    training_history_cnn = cnn_model.fit(X_train
+                                         , y_train
+                                         , validation_split = 0.2
+                                         , epochs = epochs
+                                         , batch_size = batch_size
+                                         , callbacks = [early_stopping]
+                                        # , class_weight = weights
+                                        )
 
     return cnn_model
 
