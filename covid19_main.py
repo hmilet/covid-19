@@ -12,7 +12,9 @@ from sklearn.metrics import make_scorer, f1_score
 import tensorflow as tf
 from tensorflow.keras import layers
 import pickle
+import covid19_densenet_utils as densenet
 
+IMG_SIZE = (299, 299)   # résolution native des PNG sources
 
 ##################################################
 ##################################################
@@ -28,9 +30,66 @@ parser.add_argument('-i', action='store_true', help="For a first run to preproce
 parser.add_argument('-o', action='store_true', help="To add the outlier treatment based on quantiles")
 parser.add_argument('-d', action='store_true', help="Generate the X train and y train objects and write them as files")
 parser.add_argument('-t', action='store_true', help="Allows the model to train ; else will try to load from a file")
-
+# --- Arguments ---
+parser.add_argument('--model', type=str, default='cnn',
+                    choices=['cnn', 'densenet121'],
+                    help="Modèle à entraîner/évaluer")
+parser.add_argument('-n', type=str, default='run1',
+                    help="Nom du run, utilisé pour nommer le fichier du modèle")
+parser.add_argument('--metric', type=str, default='macro_f1',
+                    choices=['macro_f1', 'covid_f1'],
+                    help="Métrique suivie pour l'early stopping (DenseNet)")
 
 args = parser.parse_args()
+
+#model_prefix = 'densenet121' if args.densenet else 'cnn'
+#model_filename = f"{model_prefix}_{args.n}.keras" if args.densenet else f"{model_prefix}_{args.n}.pickle"
+
+##################################################
+# Registre des modèles
+##################################################
+
+def save_pickle(model, filename):
+    with open(filename, 'wb') as handle:
+        pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+def load_pickle(filename):
+    with open(filename, 'rb') as handle:
+        return pickle.load(handle)
+
+MODEL_REGISTRY = {
+    'cnn': {
+        'ext': '.pickle',
+        'train': lambda X, y: cnn.train_cnn_model(
+            X_train=X, y_train=y,
+            input_shape=(256,256,1), target_size=(256,256,1),
+            epochs=500, batch_size=64, patience=50
+        ),
+        'save': save_pickle,
+        'load': load_pickle,
+        'evaluate': cnn.evaluate_cnn_model,
+    },
+    'densenet121': {
+        'ext': '.keras',
+        'train': lambda X, y: densenet.train_densenet121_model(
+            X_train=X, y_train=y,
+            input_shape=(256,256,1), target_size=(256,256,1),
+            epochs=500, batch_size=32, patience=15,
+            fine_tune_epochs=50,
+            monitor_metric=args.metric
+        ),
+        'save': lambda model, filename: model.save(filename),
+        'load': tf.keras.models.load_model,
+        #'evaluate': densenet.evaluate_densenet121_model,
+        'evaluate': lambda model, X_test, y_test: densenet.evaluate_densenet121_model(
+            model=model, X_test=X_test, y_test=y_test,
+            csv_path=f"predictions_{args.n}.csv"
+        ),
+    },
+}
+
+model_cfg = MODEL_REGISTRY[args.model]
+model_filename = f"{args.model}_{args.n}{model_cfg['ext']}"
 
 workspace = 'data/COVID-19_Radiography_Dataset/'
 
@@ -53,11 +112,13 @@ if args.i:
 
     # img
     covid_img_dir = os.path.join(workspace+'COVID/images/')
-    covid_img_arr = prep.load_img_as_np_arr(covid_img_dir)
+    # images : 299 natif -> identité, pas d'interpolation
+    covid_img_arr = prep.load_img_as_np_arr(covid_img_dir, new_size=IMG_SIZE)
 
     # msk
     covid_msk_dir = os.path.join(workspace+'COVID/masks/')
-    covid_msk_arr = prep.load_img_as_np_arr(covid_msk_dir)
+    # masks : natifs 256 -> UPSCALE vers 299, il FAUT nearest (sinon bords non-binaires)
+    covid_msk_arr = prep.load_img_as_np_arr(covid_msk_dir, new_size=IMG_SIZE, interp_method='nearest')
 
     # uniques
     unique_covid_img_arr, unique_covid_msk_arr = prep.unique_np_arr(covid_img_arr, covid_msk_arr)
@@ -76,11 +137,13 @@ if args.i:
 
     # img
     lung_opa_img_dir = os.path.join(workspace+'Lung_Opacity/images/')
-    lung_opa_img_arr = prep.load_img_as_np_arr(lung_opa_img_dir)
+    # images : 299 natif -> identité, pas d'interpolation
+    lung_opa_img_arr = prep.load_img_as_np_arr(lung_opa_img_dir, new_size=IMG_SIZE)
 
     # msk
     lung_opa_msk_dir = os.path.join(workspace+'Lung_Opacity/masks/')
-    lung_opa_msk_arr = prep.load_img_as_np_arr(lung_opa_msk_dir)
+    # masks : natifs 256 -> UPSCALE vers 299, il FAUT nearest (sinon bords non-binaires)
+    lung_opa_msk_arr = prep.load_img_as_np_arr(lung_opa_msk_dir, new_size=IMG_SIZE, interp_method='nearest')
 
     # uniques
     unique_lung_opa_img_arr, unique_lung_opa_msk_arr = prep.unique_np_arr(lung_opa_img_arr, lung_opa_msk_arr)
@@ -99,11 +162,13 @@ if args.i:
 
     # img
     normal_img_dir = os.path.join(workspace+'Normal/images/')
-    normal_img_arr = prep.load_img_as_np_arr(normal_img_dir)
+    # images : 299 natif -> identité, pas d'interpolation
+    normal_img_arr = prep.load_img_as_np_arr(normal_img_dir, new_size=IMG_SIZE)
 
     # msk
     normal_msk_dir = os.path.join(workspace+'Normal/masks/')
-    normal_msk_arr = prep.load_img_as_np_arr(normal_msk_dir)
+    # masks : natifs 256 -> UPSCALE vers 299, il FAUT nearest (sinon bords non-binaires)
+    normal_msk_arr = prep.load_img_as_np_arr(normal_msk_dir, new_size=IMG_SIZE, interp_method='nearest')
 
     # uniques
     unique_normal_img_arr, unique_normal_msk_arr = prep.unique_np_arr(normal_img_arr, normal_msk_arr)
@@ -122,11 +187,13 @@ if args.i:
 
     # img
     pneumo_img_dir = os.path.join(workspace+'Viral Pneumonia/images/')
-    pneumo_img_arr = prep.load_img_as_np_arr(pneumo_img_dir)
+    # images : 299 natif -> identité, pas d'interpolation
+    pneumo_img_arr = prep.load_img_as_np_arr(pneumo_img_dir, new_size=IMG_SIZE)
 
     # msk
     pneumo_msk_dir = os.path.join(workspace+'Viral Pneumonia/masks/')
-    pneumo_msk_arr = prep.load_img_as_np_arr(pneumo_msk_dir)
+    # masks : natifs 256 -> UPSCALE vers 299, il FAUT nearest (sinon bords non-binaires)
+    pneumo_msk_arr = prep.load_img_as_np_arr(pneumo_msk_dir, new_size=IMG_SIZE, interp_method='nearest')
 
     # uniques
     unique_pneumo_img_arr, unique_pneumo_msk_arr = prep.unique_np_arr(pneumo_img_arr, pneumo_msk_arr)
@@ -229,24 +296,24 @@ if args.i:
                                 , unique_lung_opa_img_arr
                                 , unique_normal_img_arr
                                 , unique_pneumo_img_arr]
-                                , axis = 0)
+                                , axis = 0).astype(np.uint8)
 
     msk_array = np.concatenate([unique_covid_msk_arr
                                 , unique_lung_opa_msk_arr
                                 , unique_normal_msk_arr
                                 , unique_pneumo_msk_arr]
-                                , axis = 0)
+                                , axis = 0).astype(np.uint8)
 
-    msk_array = msk_array / 255
+    msk_array = (msk_array / 255).astype(np.float32) # pour eviter np.float64
 
-    cropped_img_array = img_array * msk_array
+    cropped_img_array = (img_array * msk_array).astype(np.uint8) # s'assurer que np.uint8
 
     # target
     class_array = np.concatenate([covid_class_array
                                 , lung_opa_class_array
                                 , normal_class_array
                                 , pneumo_class_array]
-                                , axis = 0)
+                                , axis = 0).astype(np.uint8)
 
     end = time.time()
     print('Fin :', round(end - start,3), 's')
@@ -284,10 +351,12 @@ else:
         end = time.time()
         print('Fin :', round(end - start,3), 's')
 
+        indices = np.arange(len(class_array))
         X_train, X_test, y_train, y_test = train_test_split(
             #img_array,# test 1-5
             cropped_img_array,
             class_array,
+            indices,
             test_size=0.2,
             random_state=66,
             stratify=class_array
@@ -354,38 +423,23 @@ else:
         with open('ytrain.pickle', 'rb') as handle:
             y_train = pickle.load(handle)
 
-    if args.t :
-
-        ##################################################
-        # CNN
-        ##################################################
-
+    if args.t:
         start = time.time()
-        print("Entraînement du CNN...")
+        print(f"Entraînement de {args.model} ({args.n})...")
 
-        model = cnn.train_cnn_model(
-            X_train = X_train,
-            y_train = y_train,
-            input_shape = (256,256,1), 
-            target_size = (256,256,1),
-            epochs = 500,
-            batch_size = 64,
-            patience = 50
-        )
-
-        with open('model.pickle', 'wb') as handle:
-            pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        model = model_cfg['train'](X_train, y_train)
+        model_cfg['save'](model, model_filename)
+        print(f"Modèle sauvegardé : {model_filename}")
 
         end = time.time()
         print("Fin :", round(end - start, 3), "s")
 
-    if not args.t :
-
+    if not args.t:
         start = time.time()
-        print("Chargement du modèle...")
+        print(f"Chargement du modèle {model_filename}...")
 
-        with open('model.pickle', 'rb') as handle:
-            model = pickle.load(handle)
+        model = model_cfg['load'](model_filename)
+
         with open('xtest.pickle', 'rb') as handle:
             X_test = pickle.load(handle)
         with open('ytest.pickle', 'rb') as handle:
@@ -394,12 +448,53 @@ else:
         end = time.time()
         print("Fin :", round(end - start, 3), "s")
 
+    model_cfg['evaluate'](model=model, X_test=X_test, y_test=y_test)#, gradcam_img_idx=0)
+    # if args.t :
 
-    cnn.evaluate_cnn_model(
-        model = model,
-        X_test = X_test,
-        y_test = y_test
-    )
+    #     ##################################################
+    #     # CNN
+    #     ##################################################
+
+    #     start = time.time()
+    #     print("Entraînement du CNN...")
+
+    #     model = cnn.train_cnn_model(
+    #         X_train = X_train,
+    #         y_train = y_train,
+    #         input_shape = (256,256,1), 
+    #         target_size = (256,256,1),
+    #         epochs = 500,
+    #         batch_size = 64,
+    #         patience = 50
+    #     )
+
+    #     with open('model.pickle', 'wb') as handle:
+    #         pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    #     end = time.time()
+    #     print("Fin :", round(end - start, 3), "s")
+
+    # if not args.t :
+
+    #     start = time.time()
+    #     print("Chargement du modèle...")
+
+    #     with open('model.pickle', 'rb') as handle:
+    #         model = pickle.load(handle)
+    #     with open('xtest.pickle', 'rb') as handle:
+    #         X_test = pickle.load(handle)
+    #     with open('ytest.pickle', 'rb') as handle:
+    #         y_test = pickle.load(handle)
+
+    #     end = time.time()
+    #     print("Fin :", round(end - start, 3), "s")
+
+
+    # cnn.evaluate_cnn_model(
+    #     model = model,
+    #     X_test = X_test,
+    #     y_test = y_test
+    # )
 
     # #### test RandomForestClassifier
 
