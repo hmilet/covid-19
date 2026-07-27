@@ -351,7 +351,7 @@ if page == pages[2]:
     fig_x, ax_x = plt.subplots(figsize=(8, 5))
 
 
-    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 10, step = 1)
+    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 15, step = 1)
 
     plt.imshow(X_test[img_idx], cmap = 'Grays_r')
 
@@ -371,24 +371,26 @@ if page == pages[2]:
     st.header(f"Prédiction du modèle :")
     st.subheader(f"{dict_class[class_pred[0]]} ➡️ {max_val:.2%} de confiance")
 
-    fig_mod, class_report = eff.evaluate_efficientnet_model(
-        model,
-        X_test,
-        y_test,
-        img_idx
-    )
+    if st.session_state.selected_button == 'EfficientNetB2':
 
-    df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        fig_mod, class_report = eff.evaluate_efficientnet_model(
+            model,
+            X_test[:15],
+            y_test[:15],
+            img_idx
+        )
 
-    df.rename(index = {
-        '0' : "COVID"
-        , '1' : "Lung Opacity"
-        , '2' : "Normal"
-        , '3' : "Pneumonia"
-        }
-    , inplace=True)
+        df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
 
-    st.pyplot(fig_mod)
+        df.rename(index = {
+            '0' : "COVID"
+            , '1' : "Lung Opacity"
+            , '2' : "Normal"
+            , '3' : "Pneumonia"
+            }
+        , inplace=True)
+
+        st.pyplot(fig_mod)
 
     st.header('Performances globales du modèle :')
 
