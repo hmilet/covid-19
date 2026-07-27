@@ -121,7 +121,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
         title_text += f"\nTrue: {true_class} | Predicted: {pred_class}"
 
     # Plot
-    plt.figure(figsize=(15, 5))
+    fig = plt.figure(figsize=(15, 5))
     plt.suptitle(title_text, fontsize=14)
 
     plt.subplot(1, 3, 1)
@@ -140,7 +140,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     plt.axis('off')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # leave space for suptitle
-    plt.show()
+    return fig
 
 
 def create_efficientnet_model(
@@ -234,14 +234,14 @@ def train_efficientnet_model(
 def evaluate_efficientnet_model(
     model,
     X_test,
-    y_test
+    y_test,
+    img_idx
 ):
     test_pred_efficientnet = model.predict(X_test)
     test_pred_efficientnet_class = np.argmax(test_pred_efficientnet, axis=1)
 
-    print(metrics.classification_report(y_test, test_pred_efficientnet_class))
+    class_report = metrics.classification_report(y_test, test_pred_efficientnet_class, output_dict= True)
 
-    img_idx = 10
     input_image = X_test[img_idx]  # shape: (256, 256, 1)
     true_label = y_test[img_idx]
     
@@ -252,4 +252,6 @@ def evaluate_efficientnet_model(
 
     heatmap = get_gradcam_heatmap(model, input_image, pred_class, layer_name=target_layer_name)
 
-    show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
+    fig = show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
+
+    return fig, class_report

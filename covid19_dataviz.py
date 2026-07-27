@@ -316,3 +316,5 @@ def display_image_mask_pair(class_image_arrays, class_mask_arrays, class_name, i
     
     plt.tight_layout()
     plt.show()
+
+    return fig, axes
