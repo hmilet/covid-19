@@ -7,7 +7,8 @@ import covid19_dataviz as viz
 import pickle
 import covid19_cnn_utils as cnn
 import covid19_efficientnet_utils as eff
-
+from tensorflow.keras import models
+import covid19_main_gradcam_densenet as gc_densenet
 
 @st.cache_resource
 def get_data():
@@ -31,7 +32,7 @@ def get_models():
         X_test = pickle.load(handle)
     with open('ytest.pickle', 'rb') as handle:
         y_test = pickle.load(handle)
-    dense_model = ''
+    dense_model = models.load_model("densenet121_final.keras")
     return eff_model, cnn_model, dense_model, X_test, y_test
 
 dict_to_df, class_image_arrays, class_mask_arrays, pixel_stats_df, image_level_stats_df = get_data()
@@ -351,7 +352,7 @@ if page == pages[2]:
     fig_x, ax_x = plt.subplots(figsize=(8, 5))
 
 
-    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 10, step = 1)
+    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 15, step = 1)
 
     plt.imshow(X_test[img_idx], cmap = 'Grays_r')
 
@@ -371,28 +372,48 @@ if page == pages[2]:
     st.header(f"Prédiction du modèle :")
     st.subheader(f"{dict_class[class_pred[0]]} ➡️ {max_val:.2%} de confiance")
 
-    fig_mod, class_report = eff.evaluate_efficientnet_model(
-        model,
-        X_test,
-        y_test,
-        img_idx
-    )
+    if st.session_state.selected_button == "EfficientNetB2":
+        fig_mod, class_report = eff.evaluate_efficientnet_model(
+            model,
+            X_test,
+            y_test,
+            img_idx
+        )
 
-    df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
 
-    df.rename(index = {
-        '0' : "COVID"
-        , '1' : "Lung Opacity"
-        , '2' : "Normal"
-        , '3' : "Pneumonia"
-        }
-    , inplace=True)
+        df.rename(index = {
+            '0' : "COVID"
+            , '1' : "Lung Opacity"
+            , '2' : "Normal"
+            , '3' : "Pneumonia"
+            }
+        , inplace=True)
 
-    st.pyplot(fig_mod)
+        st.pyplot(fig_mod)
 
-    st.header('Performances globales du modèle :')
+        st.header('Performances globales du modèle :')
 
-    st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
+        st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
+
+    if st.session_state.selected_button == "DenseNet121":
+        #fig_mod, class_report = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
+        fig_mod = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
+        st.pyplot(fig_mod)
+
+        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        
+        # df.rename(index = {
+        #             '0' : "COVID"
+        #             , '1' : "Lung Opacity"
+        #             , '2' : "Normal"
+        #             , '3' : "Pneumonia"
+        #             }
+        # , inplace=True)
+        df = pd.read_csv('densenet121_final_classification_report.csv',index_col=0)
+        st.header('Performances globales du modèle :')
+        
+        st.dataframe(df.style.format("{:.2f}"), use_container_width = True, width='stretch')
 
 if page == pages[3] :
 

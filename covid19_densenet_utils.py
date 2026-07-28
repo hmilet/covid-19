@@ -771,7 +771,8 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure enregistrée : {save_path}")
 
-    plt.show()
+    #plt.show() #ne marche pas pour streamlit
+    return fig #ajouté pour streamlit
 
 
 ##################################################

@@ -44,6 +44,7 @@ import tensorflow as tf
 import pandas as pd
 
 import covid19_densenet_utils as densenet
+from sklearn import metrics
 
 CLASS_NAMES_LOCAL = densenet.CLASS_NAMES
 
@@ -93,10 +94,16 @@ def explain(model, X_test, y_test, idx, class_idx=None, image_ids=None, save_pat
           f"(conf. {proba[pred_class]:.3f}) | Grad-CAM sur : {densenet.CLASS_NAMES[target]}")
 
     heatmap = densenet.get_gradcam_heatmap(model, image, target)
-    densenet.show_gradcam_overlay(image, heatmap,
+    # ajout fig= pour le streamlit
+    fig = densenet.show_gradcam_overlay(image, heatmap,
                                   true_class=true_label, pred_class=pred_class,
                                   image_id=img_id, proba=proba,
                                   target_class=target, save_path=save_path)
+    # jout class_report pour le streamlit
+    # y_pred = model.predict(X_test)
+    # y_pred_class = np.argmax(y_pred, axis=1)
+    # class_report = metrics.classification_report(y_test, y_pred_class, output_dict= True)
+    return fig#, class_report #ajouté pour streamlit
 
 
 def find_indices(y_test, true_class=None, n=5, random=False, seed=66):
