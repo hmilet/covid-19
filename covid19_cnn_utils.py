@@ -164,7 +164,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
         title_text += f"\nTrue: {true_class} | Predicted: {pred_class}"
 
     # Plot
-    plt.figure(figsize=(15, 5))
+    fig = plt.figure(figsize=(15, 5))
     plt.suptitle(title_text, fontsize=14)
 
     plt.subplot(1, 3, 1)
@@ -183,7 +183,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     plt.axis('off')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # leave space for suptitle
-    plt.show()
+    return fig
 
 
 #################################
@@ -229,14 +229,15 @@ def train_cnn_model(
 def evaluate_cnn_model(
     model,
     X_test,
-    y_test
+    y_test,
+    img_idx
 ):
     test_pred_cnn = model.predict(X_test)
     test_pred_cnn_class = np.argmax(test_pred_cnn, axis = 1)
 
-    print(metrics.classification_report(y_test, test_pred_cnn_class))
+    class_report = metrics.classification_report(y_test, test_pred_cnn_class, output_dict=True)
 
-    img_idx = 10
+    #img_idx = 10
     input_image = X_test[img_idx]  # shape: (H, W, 1)
     true_label = y_test[img_idx]
     preds = model.predict(np.expand_dims(input_image, axis=0))
@@ -247,4 +248,6 @@ def evaluate_cnn_model(
     # Get heatmap
     heatmap = get_gradcam_heatmap(model, input_image, pred_class, last_conv_layer)
 
-    show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
+    fig = show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
+
+    return fig, class_report

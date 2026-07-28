@@ -390,6 +390,30 @@ if page == pages[4]:
     st.header(f"Prédiction du modèle :")
     st.subheader(f"{dict_class[class_pred[0]]} ➡️ {max_val:.2%} de confiance")
 
+    if st.session_state.selected_button == "CNN":
+        fig_mod, class_report = cnn.evaluate_cnn_model(
+            model,
+            X_test,
+            y_test,
+            img_idx
+        )
+
+        df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+
+        df.rename(index = {
+            '0' : "COVID"
+            , '1' : "Lung Opacity"
+            , '2' : "Normal"
+            , '3' : "Pneumonia"
+            }
+        , inplace=True)
+
+        st.pyplot(fig_mod)
+
+        st.header('Performances globales du modèle :')
+
+        st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
+
     if st.session_state.selected_button == "EfficientNetB2":
         fig_mod, class_report = eff.evaluate_efficientnet_model(
             model,
