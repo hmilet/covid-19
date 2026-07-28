@@ -315,10 +315,11 @@ if page == pages[1]:
 
 if page == pages[2]:
     ### Prétraitement des données
+    st.write('toto')
 
 if page == pages[3]:
     ### Modèles explorés
-
+    st.write('titi')
 
 if page == pages[4]:
     ### Prédiction
