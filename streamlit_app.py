@@ -58,6 +58,7 @@ pages = ['Contexte'
 page = st.sidebar.radio('Aller vers', pages)
 
 if page == pages[0] :
+    ### Contexte
 
     st.title("Analyse de radiographies pulmonaires COVID-19")
     st.header("Projet de classification")
@@ -109,6 +110,7 @@ if page == pages[0] :
     )
 
 if page == pages[1]:
+    ### Exploration de données
 
     st.title("Exploration du jeu de données")
 
@@ -311,8 +313,15 @@ if page == pages[1]:
 
     st.pyplot(fig5)
 
+if page == pages[2]:
+    ### Prétraitement des données
 
 if page == pages[3]:
+    ### Modèles explorés
+
+
+if page == pages[4]:
+    ### Prédiction
 
     st.title("Prédiction")
 
@@ -418,5 +427,6 @@ if page == pages[3]:
         st.dataframe(df.style.format("{:.2f}"), use_container_width = True, width='stretch')
 
 if page == pages[5] :
+    ### Résumé
 
     st.write('bidule')
