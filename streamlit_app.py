@@ -398,18 +398,19 @@ if page == pages[4]:
             img_idx
         )
 
-        df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
 
-        df.rename(index = {
-            '0' : "COVID"
-            , '1' : "Lung Opacity"
-            , '2' : "Normal"
-            , '3' : "Pneumonia"
-            }
-        , inplace=True)
+        # df.rename(index = {
+        #     '0' : "COVID"
+        #     , '1' : "Lung Opacity"
+        #     , '2' : "Normal"
+        #     , '3' : "Pneumonia"
+        #     }
+        # , inplace=True)
 
         st.pyplot(fig_mod)
 
+        df = pd.read_csv('cnn_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
         st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
@@ -422,18 +423,19 @@ if page == pages[4]:
             img_idx
         )
 
-        df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
 
-        df.rename(index = {
-            '0' : "COVID"
-            , '1' : "Lung Opacity"
-            , '2' : "Normal"
-            , '3' : "Pneumonia"
-            }
-        , inplace=True)
+        # df.rename(index = {
+        #     '0' : "COVID"
+        #     , '1' : "Lung Opacity"
+        #     , '2' : "Normal"
+        #     , '3' : "Pneumonia"
+        #     }
+        # , inplace=True)
 
         st.pyplot(fig_mod)
 
+        df = pd.read_csv('efficientnetb2_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
         st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
