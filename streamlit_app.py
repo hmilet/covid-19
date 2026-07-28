@@ -49,6 +49,8 @@ st.sidebar.title('Sommaire')
 
 pages = ['Contexte'
          , 'Exploration de données'
+         , 'Prétraitement des données'
+         , 'Modèles explorés'
          , 'Prédiction'
          , 'Résumé']
 
@@ -309,7 +311,7 @@ if page == pages[1]:
     st.pyplot(fig5)
 
 
-if page == pages[2]:
+if page == pages[3]:
 
     st.title("Prédiction")
 
@@ -396,6 +398,6 @@ if page == pages[2]:
 
     st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
 
-if page == pages[3] :
+if page == pages[5] :
 
     st.write('bidule')
