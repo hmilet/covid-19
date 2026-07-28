@@ -138,7 +138,7 @@ if page == pages[1]:
 
     class_name = 'Normal'
 
-    if st.session_state.selected_button in ["CNN", "DenseNet121", "EfficientNetB2"]:
+    if "selected_button" in st.session_state and st.session_state.selected_button in ["CNN", "DenseNet121", "EfficientNetB2"]:
         del st.session_state.selected_button
 
     if "selected_button" not in st.session_state:
@@ -327,7 +327,7 @@ if page == pages[3]:
 if page == pages[4]:
     ### Prédiction
 
-    if st.session_state.selected_button in ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]:
+    if "selected_button" in st.session_state and st.session_state.selected_button in ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]:
         del st.session_state.selected_button
 
     st.title("Prédiction")
