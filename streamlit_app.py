@@ -338,9 +338,14 @@ if page == pages[4]:
                   , 'DenseNet121' : dense_model
                   , 'EfficientNetB2' : eff_model}
 
-    if "selected_button" not in st.session_state:
-        st.session_state.selected_button = "CNN" # Option par défaut
-        model = model_dict['CNN']
+    # if "selected_button" not in st.session_state:
+    #     st.session_state.selected_button = "CNN" # Option par défaut
+    #     model = model_dict['CNN']
+    def set_model(name):
+        st.session_state.model_choice = name
+
+    if "model_choice" not in st.session_state:
+        st.session_state.model_choice = "CNN"
 
     options = ["CNN", "DenseNet121", "EfficientNetB2"]
 
@@ -350,27 +355,34 @@ if page == pages[4]:
     for i, option in enumerate(options):
         with cols[i]:
             # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
-            is_selected = (st.session_state.selected_button == option)
+            #is_selected = (st.session_state.selected_button == option)
+            is_selected = (st.session_state.model_choice == option)
             
-            if st.button(
+            #if st.button(
+            st.button(
                 option, 
                 key=f"btn_{i}", 
                 width = 'stretch',
-                type="primary" if is_selected else "secondary"
-            ):
-                st.session_state.selected_button = option
+                type="primary" if is_selected else "secondary",
+                on_click=set_model,
+                args=(option,)
+            )#:
+                #st.session_state.selected_button = option
+                #st.session_state.model_choice = option
 
-                st.rerun() # Force la mise à jour immédiate de l'affichage
+                #st.rerun() # Force la mise à jour immédiate de l'affichage
 
 
-    model = model_dict[st.session_state.selected_button]
+    #model = model_dict[st.session_state.selected_button]
+    model = model_dict[st.session_state.model_choice]
 
     st.header("Image à prédire:")
 
     fig_x, ax_x = plt.subplots(figsize=(8, 5))
 
 
-    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 15, step = 1)
+    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 15, step = 1,
+                        key="img_idx_pred")  # clé fixe, indépendante du modèle choisi)
 
     plt.imshow(X_test[img_idx], cmap = 'Grays_r')
 
@@ -390,70 +402,198 @@ if page == pages[4]:
     st.header(f"Prédiction du modèle :")
     st.subheader(f"{dict_class[class_pred[0]]} ➡️ {max_val:.2%} de confiance")
 
-    if st.session_state.selected_button == "CNN":
-        fig_mod, class_report = cnn.evaluate_cnn_model(
-            model,
-            X_test,
-            y_test,
-            img_idx
-        )
+    #if st.session_state.selected_button == "CNN":
+    if st.session_state.model_choice == "CNN":
+        # fig_mod, class_report = cnn.evaluate_cnn_model(
+        #     model,
+        #     X_test,
+        #     y_test,
+        #     img_idx
+        # )
 
-        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        # fig_mod = cnn.explain(model, X_test, y_test, img_idx)
+        # st.pyplot(fig_mod)
+        if st.session_state.get("cnn_gradcam1_key") != img_idx:
+            st.session_state.cnn_fig_mod = cnn.explain(model, X_test, y_test, img_idx)
+            st.session_state.cnn_gradcam1_key = img_idx
+        
+        st.pyplot(st.session_state.cnn_fig_mod)   
 
-        # df.rename(index = {
-        #     '0' : "COVID"
-        #     , '1' : "Lung Opacity"
-        #     , '2' : "Normal"
-        #     , '3' : "Pneumonia"
-        #     }
-        # , inplace=True)
+        def set_class(name):
+            st.session_state.class_choice = name
 
-        st.pyplot(fig_mod)
+        if "class_choice" not in st.session_state:
+            st.session_state.class_choice = "Normal"
+        
+        options_explo = ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]
+
+        # Affichage des 4 boutons côte à côte
+        cols = st.columns(len(options_explo))
+
+        for i, option in enumerate(options_explo):
+            with cols[i]:
+                # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
+                #is_selected = (st.session_state.selected_button == option)
+                is_selected = (st.session_state.class_choice == option)#class_choice
+                
+                #if st.button(
+                st.button(
+                    option, 
+                    key=f"btn_{i}_D", 
+                    width = 'stretch',
+                    type="primary" if is_selected else "secondary",
+                    on_click=set_class,
+                    args=(option,)
+                )#:
+                    #st.session_state.selected_button = option
+                    #st.session_state.class_choice = option
+                    #class_name = option
+                    #st.rerun() # Force la mise à jour immédiate de l'affichage
+        # adapte ce mapping à ton dict_class réel (0=COVID, 1=Lung Opacity, 2=Normal, 3=Viral Pneumonia)
+        class_label_map = {"COVID": 0, "Lung Opacity": 1, "Normal": 2, "Viral Pneumonia": 3}
+        label = class_label_map[st.session_state.class_choice]
+
+        # clé qui identifie le dernier calcul effectué
+        current_key = (img_idx, label)
+
+        if st.session_state.get("cnn_gradcam2_key") != current_key:
+            st.session_state.cnn_fig_mod2 = cnn.explain(
+                model, X_test, y_test, img_idx, class_idx=label
+            )
+            st.session_state.cnn_gradcam2_key = current_key
+
+        st.pyplot(st.session_state.cnn_fig_mod2)
 
         df = pd.read_csv('cnn_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
         st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
 
-    if st.session_state.selected_button == "EfficientNetB2":
-        fig_mod, class_report = eff.evaluate_efficientnet_model(
-            model,
-            X_test,
-            y_test,
-            img_idx
-        )
+    #if st.session_state.selected_button == "EfficientNetB2":
+    if st.session_state.model_choice == "EfficientNetB2":
+        # fig_mod, class_report = eff.evaluate_efficientnet_model(
+        #     model,
+        #     X_test,
+        #     y_test,
+        #     img_idx
+        # )
+        # fig_mod = eff.explain(model, X_test, y_test, img_idx)
+        # st.pyplot(fig_mod)
+        if st.session_state.get("eff_gradcam1_key") != img_idx:
+            st.session_state.eff_fig_mod = eff.explain(model, X_test, y_test, img_idx)
+            st.session_state.eff_gradcam1_key = img_idx
+        
+        st.pyplot(st.session_state.eff_fig_mod)
 
-        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        def set_class(name):
+            st.session_state.class_choice = name
 
-        # df.rename(index = {
-        #     '0' : "COVID"
-        #     , '1' : "Lung Opacity"
-        #     , '2' : "Normal"
-        #     , '3' : "Pneumonia"
-        #     }
-        # , inplace=True)
+        if "class_choice" not in st.session_state:
+            st.session_state.class_choice = "Normal"
+        
+        options_explo = ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]
 
-        st.pyplot(fig_mod)
+        # Affichage des 4 boutons côte à côte
+        cols = st.columns(len(options_explo))
+
+        for i, option in enumerate(options_explo):
+            with cols[i]:
+                # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
+                #is_selected = (st.session_state.selected_button == option)
+                is_selected = (st.session_state.class_choice == option)#class_choice
+                
+                #if st.button(
+                st.button(
+                    option, 
+                    key=f"btn_{i}_D", 
+                    width = 'stretch',
+                    type="primary" if is_selected else "secondary",
+                    on_click=set_class,
+                    args=(option,)
+                )#:
+                    #st.session_state.selected_button = option
+                    #st.session_state.class_choice = option
+                    #class_name = option
+                    #st.rerun() # Force la mise à jour immédiate de l'affichage
+        # adapte ce mapping à ton dict_class réel (0=COVID, 1=Lung Opacity, 2=Normal, 3=Viral Pneumonia)
+        class_label_map = {"COVID": 0, "Lung Opacity": 1, "Normal": 2, "Viral Pneumonia": 3}
+        label = class_label_map[st.session_state.class_choice]
+
+        # clé qui identifie le dernier calcul effectué
+        current_key = (img_idx, label)
+
+        if st.session_state.get("eff_gradcam2_key") != current_key:
+            st.session_state.eff_fig_mod2 = eff.explain(
+                model, X_test, y_test, img_idx, class_idx=label
+            )
+            st.session_state.eff_gradcam2_key = current_key
+
+        st.pyplot(st.session_state.eff_fig_mod2)
 
         df = pd.read_csv('efficientnetb2_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
         st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
 
-    if st.session_state.selected_button == "DenseNet121":
+    #if st.session_state.selected_button == "DenseNet121":
+    if st.session_state.model_choice == "DenseNet121":
         #fig_mod, class_report = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
-        fig_mod = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
-        st.pyplot(fig_mod)
+        #fig_mod = gc_densenet.explain(dense_model, X_test, y_test, img_idx)#,base_model_name="densenet121")
+        #st.pyplot(fig_mod)
+        if st.session_state.get("dense_gradcam1_key") != img_idx:
+            st.session_state.dense_fig_mod = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
+            st.session_state.dense_gradcam1_key = img_idx
 
-        # df = pd.DataFrame.from_dict(class_report).transpose().drop(columns = ['support'])
+        st.pyplot(st.session_state.dense_fig_mod)
+
+        def set_class(name):
+            st.session_state.class_choice = name
+
+        if "class_choice" not in st.session_state:
+            st.session_state.class_choice = "Normal"
         
-        # df.rename(index = {
-        #             '0' : "COVID"
-        #             , '1' : "Lung Opacity"
-        #             , '2' : "Normal"
-        #             , '3' : "Pneumonia"
-        #             }
-        # , inplace=True)
+        options_explo = ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]
+
+        # Affichage des 4 boutons côte à côte
+        cols = st.columns(len(options_explo))
+
+        for i, option in enumerate(options_explo):
+            with cols[i]:
+                # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
+                #is_selected = (st.session_state.selected_button == option)
+                is_selected = (st.session_state.class_choice == option)#class_choice
+                
+                #if st.button(
+                st.button(
+                    option, 
+                    key=f"btn_{i}_D", 
+                    width = 'stretch',
+                    type="primary" if is_selected else "secondary",
+                    on_click=set_class,
+                    args=(option,)
+                )#:
+                    #st.session_state.selected_button = option
+                    #st.session_state.class_choice = option
+                    #class_name = option
+                    #st.rerun() # Force la mise à jour immédiate de l'affichage
+        # adapte ce mapping à ton dict_class réel (0=COVID, 1=Lung Opacity, 2=Normal, 3=Viral Pneumonia)
+        class_label_map = {"COVID": 0, "Lung Opacity": 1, "Normal": 2, "Viral Pneumonia": 3}
+        label = class_label_map[st.session_state.class_choice]
+
+        # fig_mod2 = gc_densenet.explain(dense_model, X_test, y_test, img_idx, class_idx=label)
+        # st.pyplot(fig_mod2)
+        
+        # clé qui identifie le dernier calcul effectué
+        current_key = (img_idx, label)
+
+        if st.session_state.get("dense_gradcam2_key") != current_key:
+            st.session_state.dense_fig_mod2 = gc_densenet.explain(
+                dense_model, X_test, y_test, img_idx, class_idx=label
+            )
+            st.session_state.dense_gradcam2_key = current_key
+
+        st.pyplot(st.session_state.dense_fig_mod2)
+        
         df = pd.read_csv('densenet121_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
         

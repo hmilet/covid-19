@@ -71,7 +71,7 @@ def load_model(model_name="densenet121", run_name="run1"):
 # Explication d'une image
 ##################################################
 
-def explain(model, X_test, y_test, idx, class_idx=None, image_ids=None, save_path=None):
+def explain(model, X_test, y_test, idx, class_idx=None, image_ids=None, save_path=None):#, base_model_name=None):
     """
     Affiche le Grad-CAM pour l'image à la position idx dans X_test.
     class_idx : classe cible du Grad-CAM. Si None, on prend la classe
@@ -93,7 +93,7 @@ def explain(model, X_test, y_test, idx, class_idx=None, image_ids=None, save_pat
           f"| prédite : {densenet.CLASS_NAMES[pred_class]} "
           f"(conf. {proba[pred_class]:.3f}) | Grad-CAM sur : {densenet.CLASS_NAMES[target]}")
 
-    heatmap = densenet.get_gradcam_heatmap(model, image, target)
+    heatmap = densenet.get_gradcam_heatmap(model, image, target)#, base_model_name)
     # ajout fig= pour le streamlit
     fig = densenet.show_gradcam_overlay(image, heatmap,
                                   true_class=true_label, pred_class=pred_class,
@@ -104,7 +104,6 @@ def explain(model, X_test, y_test, idx, class_idx=None, image_ids=None, save_pat
     # y_pred_class = np.argmax(y_pred, axis=1)
     # class_report = metrics.classification_report(y_test, y_pred_class, output_dict= True)
     return fig#, class_report #ajouté pour streamlit
-
 
 def find_indices(y_test, true_class=None, n=5, random=False, seed=66):
     """
@@ -138,7 +137,8 @@ def explain_class(model, X_test, y_test, true_class, n=3,
     positions = find_indices(y_test, true_class=true_class, n=n, random=random)
     print(f"Images de classe {CLASS_NAMES_LOCAL[true_class]} : positions {positions}")
     for pos in positions:
-        explain(model, X_test, y_test, pos, class_idx=class_idx)
+        fig = explain(model, X_test, y_test, pos, class_idx=class_idx)
+        densenet.display_gradcam(fig)
 
 
 def explain_errors(model, X_test, y_test, csv_path="predictions.csv",
@@ -153,7 +153,8 @@ def explain_errors(model, X_test, y_test, csv_path="predictions.csv",
     print(f"{len(wrong_positions)} erreurs trouvées dans {csv_path}. "
           f"Affichage des {min(n, len(wrong_positions))} premières.")
     for pos in wrong_positions[:n]:
-        explain(model, X_test, y_test, pos, class_idx=class_idx)
+        fig = explain(model, X_test, y_test, pos, class_idx=class_idx)
+        densenet.display_gradcam(fig)
 
 
 ##################################################
@@ -204,7 +205,8 @@ def main():
                       n=args.n_images, class_idx=args.class_idx,
                       random=args.random)
     elif args.idx is not None:
-        explain(model, X_test, y_test, args.idx, class_idx=args.class_idx)
+        fig = explain(model, X_test, y_test, args.idx, class_idx=args.class_idx)
+        densenet.display_gradcam(fig)
     else:
         # Mode interactif
         print("Mode interactif. Entrer un index d'image, 'q' pour quitter.")
@@ -213,7 +215,8 @@ def main():
             if s.lower() in ("q", "quit", "exit"):
                 break
             try:
-                explain(model, X_test, y_test, int(s), class_idx=args.class_idx)
+                fig = explain(model, X_test, y_test, int(s), class_idx=args.class_idx)
+                densenet.display_gradcam(fig)
             except (ValueError, IndexError) as e:
                 print(f"Entrée invalide : {e}")
 

@@ -48,7 +48,6 @@ import argparse
 import covid19_svm_utils as svm
 import covid19_randomforest_utils as randomforest
 import covid19_cnn_utils as cnn
-import covid19_efficientnet_utils as efficientnet
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer, f1_score
 import tensorflow as tf
@@ -274,12 +273,12 @@ MODEL_REGISTRY = {
         'train': lambda X, y: efficientnet.train_efficientnet_model(
             X_train=X, y_train=y,
             input_shape=INPUT_SHAPE,
-            epochs=500, batch_size=_bs(32), patience=50
+            epochs=10, batch_size=_bs(32), patience=50
         )[0],
         'save': lambda model, filename: model.save(filename),
         'load': tf.keras.models.load_model,
         'evaluate': lambda model, X_test, y_test: efficientnet.evaluate_efficientnet_model(
-            model=model, X_test=X_test, y_test=y_test
+            model=model, X_test=X_test, y_test=y_test, img_idx=10
         ),
     },
 }
@@ -555,9 +554,8 @@ else:
         model_cfg['save'](model, model_filename)
         print(f"Modèle sauvegardé : {model_filename}")
 
-            ##################################################
-            # EfficientNetB2
-            ##################################################
+        end = time.time()
+        print("Fin :", round(end - start, 3), "s")
 
     if not args.t:
         start = time.time()
@@ -570,24 +568,7 @@ else:
         with open(YTEST_FILE, 'rb') as handle:
             y_test = pickle.load(handle)
 
-            end = time.time()
-            print("Fin :", round(end - start, 3), "s")
-
-        if not args.t :
-
-            start = time.time()
-            print("Chargement du modèle...")
-
-            with open('eff_model.pickle', 'rb') as handle:
-                model = pickle.load(handle)
-            with open('eff_bmodel.pickle', 'rb') as handle:
-                base_model = pickle.load(handle)
-            with open('xtest.pickle', 'rb') as handle:
-                X_test = pickle.load(handle)
-            with open('ytest.pickle', 'rb') as handle:
-                y_test = pickle.load(handle)
-
-            end = time.time()
-            print("Fin :", round(end - start, 3), "s")
+        end = time.time()
+        print("Fin :", round(end - start, 3), "s")
 
     model_cfg['evaluate'](model=model, X_test=X_test, y_test=y_test)
