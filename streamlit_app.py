@@ -136,36 +136,47 @@ if page == pages[1]:
 
     st.dataframe(df, hide_index = True, width = 'stretch')
 
-    class_name = 'Normal'
-
+    #class_name = 'COVID'
+    #print("begin class_name:", class_name)
     if "selected_button" in st.session_state and st.session_state.selected_button in ["CNN", "DenseNet121", "EfficientNetB2"]:
         del st.session_state.selected_button
 
     if "selected_button" not in st.session_state:
         st.session_state.selected_button = "Normal" # Option par défaut
+    class_name = st.session_state.selected_button
 
     options_explo = ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]
 
     # Affichage des 4 boutons côte à côte
     cols = st.columns(len(options_explo))
 
+    def set_class(name):
+            st.session_state.selected_button = name
+
     for i, option in enumerate(options_explo):
         with cols[i]:
             # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
             is_selected = (st.session_state.selected_button == option)
+            #print("option:", option)
             
-            if st.button(
+            #if st.button(
+            st.button(
                 option, 
                 key=f"btn_{i}", 
                 width = 'stretch',
-                type="primary" if is_selected else "secondary"
-            ):
-                st.session_state.selected_button = option
-                class_name = option
-                st.rerun() # Force la mise à jour immédiate de l'affichage
+                type="primary" if is_selected else "secondary",
+                on_click=set_class,
+                args=(option,)
+            )#:
+                #st.session_state.selected_button = option
+                #class_name = option
+                #print("Button ------> class_name:", class_name)
+                #st.rerun() # Force la mise à jour immédiate de l'affichage
 
-    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 10, step = 1)
-
+    img_idx = st.slider("Index de l'image :", min_value = 0, max_value = 10, step = 1,
+                        key="img_idx_pred")  # clé fixe, indépendante du modèle choisi)
+    #print("option:", option)
+    #print("avant affichage--> class_name:", class_name)
     fig, ax = viz.display_image_mask_pair(
         class_image_arrays,
         class_mask_arrays,
