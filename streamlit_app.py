@@ -318,7 +318,35 @@ if page == pages[1]:
 
 if page == pages[2]:
     ### Prétraitement des données
-    st.write('toto')
+        st.title("Prétraitement des données")
+
+        st.header("Gestion des doublons")
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            En comparant les images, on constate que l’on a des doublons au pixel près selon la distribution suivante : 
+
+            - COVID : <span style="color: #FF0000;">3616</span> images dont <span style="color: #FF0000;">3565</span> uniques
+            - Lung Opacity : <span style="color: #FF0000;">6012</span> images dont <span style="color: #FF0000;">6012</span> uniques
+            - Normal : <span style="color: #FF0000;">10192</span> images dont <span style="color: #FF0000;">10191</span> uniques
+            - Viral Pneumonia : <span style="color: #FF0000;">1345</span> images dont <span style="color: #FF0000;">1338</span> uniques
+
+            Un traitement pour supprimer ces doublons est donc réalisé et également appliqué sur les mêmes index concernant les masques.
+            </div>
+            <br>
+            <br>
+            """
+            , unsafe_allow_html=True
+        )
+
+        st.header("Redimensionnement des images")
+
+        st.header("Data Augmentation")
+
+        st.header("Gestion des outliers")
+
+
 
 if page == pages[3]:
     ### Modèles explorés
