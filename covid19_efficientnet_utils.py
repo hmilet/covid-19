@@ -6,7 +6,10 @@ from sklearn import metrics
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-
+import pandas as pd
+CLASS_NAMES = ["COVID", "Lung Opacity", "Normal", "Viral Pneumonia"]
+COVID_CLASS_INDEX = 0
+BASE_MODEL_NAME = "efficientnetb2"
 
 #################################
 # Interpretability
@@ -142,7 +145,6 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # leave space for suptitle
     return fig
 
-
 def create_efficientnet_model(
     input_shape = (256,256,1)
 ):
@@ -241,7 +243,14 @@ def evaluate_efficientnet_model(
     test_pred_efficientnet_class = np.argmax(test_pred_efficientnet, axis=1)
 
     class_report = metrics.classification_report(y_test, test_pred_efficientnet_class, output_dict= True)
-
+    # affichage classification_report lors de l'appel evaluate_efficientnet_model sur covid19_main.py
+    print("\nClassification report :")
+    print(metrics.classification_report(y_test, test_pred_efficientnet_class, output_dict=False))
+    #print(pd.DataFrame(class_report).T)
+    # affichage Matrice de confusion lors de l'appel evaluate_efficientnet_model sur covid19_main.py
+    print("Matrice de confusion :")
+    print(metrics.confusion_matrix(y_test, test_pred_efficientnet_class))
+    
     input_image = X_test[img_idx]  # shape: (256, 256, 1)
     true_label = y_test[img_idx]
     
@@ -255,3 +264,206 @@ def evaluate_efficientnet_model(
     fig = show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
 
     return fig, class_report
+
+def show_gradcam_overlay_softmax(input_image, heatmap, true_class=None, pred_class=None,
+                                 alpha=0.5, image_id=None, proba=None, target_class=None,
+                                 save_path=None):
+    """
+    Displays original input, Grad-CAM heatmap, and overlay with class info.
+    
+    Args:
+        input_image (np.array): Input image (H, W, 1) or (H, W, 3)
+        heatmap (np.array): Grad-CAM heatmap (range 0–1)
+        true_class (str or int): True class label (optional)
+        pred_class (str or int): Predicted class label (optional)
+        alpha (float): Blending factor for overlay
+    """
+    # Scale and resize heatmap
+    heatmap = np.uint8(255 * heatmap)
+    heatmap_resized = cv2.resize(heatmap, (input_image.shape[1], input_image.shape[0]))
+    heatmap_colored_bgr = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
+    heatmap_colored = cv2.cvtColor(heatmap_colored_bgr, cv2.COLOR_BGR2RGB)
+
+    # Prepare input image and convert to 3-channel RGB
+    if input_image.shape[-1] == 1:
+        img_uint8 = np.uint8(255 * input_image.squeeze())
+        input_image_rgb = cv2.cvtColor(img_uint8, cv2.COLOR_GRAY2BGR)
+        input_display = input_image.squeeze()
+        cmap = 'gray'
+    elif input_image.shape[-1] == 3:
+        input_image_rgb = np.uint8(255 * input_image)
+        input_display = input_image
+        cmap = None
+    else:
+        raise ValueError("Input image must have 1 or 3 channels.")
+
+    # Create overlay image
+    overlay_bgr = cv2.addWeighted(heatmap_colored_bgr, alpha, input_image_rgb, 1 - alpha, 0)
+    overlay = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
+
+    # ----- Titre -----
+    t = CLASS_NAMES[true_class] if isinstance(true_class, (int, np.integer)) else true_class
+    p = CLASS_NAMES[pred_class] if isinstance(pred_class, (int, np.integer)) else pred_class
+
+    # Build figure title
+    #title_text = "Grad-CAM (EfficientNetB2)"
+    header = "Grad-CAM (EfficientNetB2)"
+    # if true_class is not None or pred_class is not None:
+    #     title_text += f"\nTrue: {true_class} | Predicted: {pred_class}"
+
+    if image_id is not None:
+        header += f" — image #{image_id}"
+
+    line2 = ""
+    if true_class is not None or pred_class is not None:
+        line2 = f"True: {t}  |  Predicted: {p}"
+        if proba is not None and pred_class is not None:
+            line2 += f" (confidence {np.asarray(proba)[pred_class]:.3f})"
+        # Marqueur visuel : la bonne ou la mauvaise réponse
+        if true_class is not None and pred_class is not None:
+            line2 += "  ✓" if int(true_class) == int(pred_class) else "  ✗"
+
+    line3 = ""
+    if target_class is not None and pred_class is not None and int(target_class) != int(pred_class):
+        tc = CLASS_NAMES[target_class] if isinstance(target_class, (int, np.integer)) else target_class
+        line3 = f"[contrefactuel] gradient calculé sur : {tc}"
+
+    title_text = "\n".join([s for s in (header, line2, line3) if s])
+
+    # ----- Figure -----
+    # GridSpec plutôt que subplot : les panneaux d'images ont un aspect
+    # verrouillé (imshow), donc tight_layout ne détecte pas le débordement
+    # des étiquettes du 4e panneau. On supprime les étiquettes d'axe et on
+    # écrit le nom de la classe DANS la barre : plus rien ne peut déborder.
+    n_panels = 4 if proba is not None else 3
+    width_ratios = [1, 1, 1, 0.85] if proba is not None else [1, 1, 1]
+
+    #ajout pour corrigé
+    # nombre de lignes réelles du titre (header + éventuel line2 + éventuel line3)
+    n_title_lines = title_text.count("\n") + 1
+    title_h = 0.08 + 0.045 * n_title_lines   # hauteur allouée, adaptative
+
+    #fig = plt.figure(figsize=(5 * n_panels, 5))
+    fig = plt.figure(figsize=(5 * n_panels, 5 + title_h * 5))
+    #gs = fig.add_gridspec(1, n_panels, width_ratios=width_ratios, wspace=0.15)
+    gs = fig.add_gridspec(
+        2, n_panels,
+        height_ratios=[title_h, 1 - title_h],
+        width_ratios=width_ratios,
+        wspace=0.15, hspace=0.05
+    )
+    # fig.suptitle(title_text, fontsize=13)
+
+    # ax1 = fig.add_subplot(gs[0, 0])
+    # ax1.set_title("Original")
+    # ax1.imshow(input_display, cmap=cmap)
+    # ax1.axis('off')
+
+    # ax2 = fig.add_subplot(gs[0, 1])
+    # ax2.set_title("Grad-CAM Heatmap")
+    # ax2.imshow(heatmap_colored)
+    # ax2.axis('off')
+
+    # ax3 = fig.add_subplot(gs[0, 2])
+    # ax3.set_title("Grad-CAM Overlay")
+    # ax3.imshow(overlay)
+    # ax3.axis('off')
+    # --- Titre : axe dédié, indépendant des titres de subplots ---
+    ax_title = fig.add_subplot(gs[0, :])
+    ax_title.axis("off")
+    ax_title.text(0.5, 0.5, title_text, ha="center", va="center", fontsize=13)
+
+    ax1 = fig.add_subplot(gs[1, 0])
+    ax1.set_title("Original")
+    ax1.imshow(input_display, cmap=cmap)
+    ax1.axis('off')
+
+    ax2 = fig.add_subplot(gs[1, 1])
+    ax2.set_title("Grad-CAM Heatmap")
+    ax2.imshow(heatmap_colored)
+    ax2.axis('off')
+
+    ax3 = fig.add_subplot(gs[1, 2])
+    ax3.set_title("Grad-CAM Overlay")
+    ax3.imshow(overlay)
+    ax3.axis('off')
+
+    if proba is not None:
+        proba = np.asarray(proba).flatten()
+        #ax4 = fig.add_subplot(gs[0, 3])
+        ax4 = fig.add_subplot(gs[1, 3])
+
+        # Vert = vraie classe, rouge = classe prédite si elle est fausse,
+        # gris = les autres. Lecture immédiate de la nature de l'erreur.
+        colors = []
+        for i in range(len(proba)):
+            if true_class is not None and i == int(true_class):
+                colors.append("tab:green")
+            elif pred_class is not None and i == int(pred_class):
+                colors.append("tab:red")
+            else:
+                colors.append("lightgray")
+
+        y_pos = np.arange(len(proba))
+        ax4.barh(y_pos, proba, color=colors, height=0.6)
+        ax4.set_yticks(y_pos)
+        ax4.set_yticklabels([])          # aucune étiquette à gauche de l'axe
+        ax4.invert_yaxis()
+        ax4.set_xlim(0, 1)
+        ax4.set_xlabel("Probabilité")
+        ax4.set_title("Distribution softmax")
+        ax4.spines[['top', 'right']].set_visible(False)
+
+        # Nom de la classe + valeur, écrits dans la barre si elle est assez
+        # longue, sinon juste à sa droite (cas des probabilités quasi nulles)
+        for i, v in enumerate(proba):
+            label = f"{CLASS_NAMES[i]}  {v:.3f}"
+            if v > 0.45:
+                ax4.text(v - 0.02, i, label, va="center", ha="right",
+                         fontsize=9, color="white", fontweight="bold")
+            else:
+                ax4.text(v + 0.02, i, label, va="center", ha="left",
+                         fontsize=9, color="0.25")
+
+    #fig.subplots_adjust(top=0.86)
+
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure enregistrée : {save_path}")
+
+    #plt.show() #ne marche pas pour streamlit
+    return fig #ajouté pour streamlit
+
+def explain(model,
+    X_test,
+    y_test,
+    img_idx,
+    class_idx=None
+):
+    """
+        Affiche le Grad-CAM pour l'image à la position idx dans X_test.
+        class_idx : classe cible du Grad-CAM. Si None, on prend la classe
+        prédite (comportement par défaut : "pourquoi cette prédiction ?").
+        image_ids : optionnel, tableau des ids d'origine (idx_test). Si absent,
+        l'id affiché est la position dans X_test.
+    """
+    input_image = X_test[img_idx]  # shape: (256, 256, 1)
+    true_label = y_test[img_idx]
+    
+    #preds = model.predict(np.expand_dims(input_image, axis=0))
+    x = np.expand_dims(input_image, axis=0)
+    proba = model.predict(x, verbose=0)[0]
+    pred_class = int(np.argmax(proba))
+
+    target = class_idx if class_idx is not None else pred_class
+
+    target_layer_name = 'top_conv'
+
+    heatmap = get_gradcam_heatmap(model, input_image, target, layer_name=target_layer_name)
+
+    #fig = show_gradcam_overlay(input_image, heatmap, true_class=true_label, pred_class=pred_class)
+    fig = show_gradcam_overlay_softmax(input_image, heatmap,
+                                true_class=true_label, pred_class=pred_class, 
+                                image_id=img_idx, proba=proba, target_class=target)
+
+    return fig

@@ -608,19 +608,23 @@ def get_gradcam_heatmap(model, image, class_idx, base_model_name=BASE_MODEL_NAME
         predictions = classifier_model(conv_outputs, training=False)
         loss = predictions[:, class_idx]
 
+    # 4. Calcul du gradient de la perte par rapport aux activations de 'top_conv'
     grads = tape.gradient(loss, conv_outputs)
 
     if grads is None:
         raise ValueError("Gradient None : vérifiez le nom du sous-modèle de base.")
 
+    # Passage du format batch (1, H, W, C) au format 3D (H, W, C)
     grads = grads[0]
     local_conv_outputs = conv_outputs[0]
 
-    # Poids = moyenne globale des gradients par canal
+    # Calcul des poids (moyenne globale des gradients par canal de la carte de caractéristiques)
     weights = tf.reduce_mean(grads, axis=(0, 1))
 
-    # Combinaison linéaire des canaux, puis ReLU
+    # Combinaison linéaire des canaux de la carte de caractéristiques
     cam = tf.reduce_sum(tf.multiply(weights, local_conv_outputs), axis=-1)
+
+    # Passage par la fonction ReLU (on ne garde que les caractéristiques qui augmentent la décision)
     cam = tf.nn.relu(cam).numpy()
 
     # Normalisation [0, 1]
@@ -658,11 +662,13 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     if input_image.max() > 1.0:
         input_image = input_image / 255.0
 
+    # Scale and resize heatmap
     heatmap_u8 = np.uint8(255 * heatmap)
     heatmap_resized = cv2.resize(heatmap_u8, (input_image.shape[1], input_image.shape[0]))
     heatmap_colored_bgr = cv2.applyColorMap(heatmap_resized, cv2.COLORMAP_JET)
     heatmap_colored = cv2.cvtColor(heatmap_colored_bgr, cv2.COLOR_BGR2RGB)
 
+    # Prepare input image and convert to 3-channel RGB
     if input_image.shape[-1] == 1:
         img_uint8 = np.uint8(255 * input_image.squeeze())
         input_image_rgb = cv2.cvtColor(img_uint8, cv2.COLOR_GRAY2BGR)
@@ -675,6 +681,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     else:
         raise ValueError("L'image doit avoir 1 ou 3 canaux.")
 
+    # Create overlay image
     overlay_bgr = cv2.addWeighted(heatmap_colored_bgr, alpha, input_image_rgb, 1 - alpha, 0)
     overlay = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
 
@@ -682,6 +689,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     t = CLASS_NAMES[true_class] if isinstance(true_class, (int, np.integer)) else true_class
     p = CLASS_NAMES[pred_class] if isinstance(pred_class, (int, np.integer)) else pred_class
 
+    # Build figure title
     header = "Grad-CAM (DenseNet121)"
     if image_id is not None:
         header += f" — image #{image_id}"
@@ -710,28 +718,60 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     n_panels = 4 if proba is not None else 3
     width_ratios = [1, 1, 1, 0.85] if proba is not None else [1, 1, 1]
 
-    fig = plt.figure(figsize=(5 * n_panels, 5))
-    gs = fig.add_gridspec(1, n_panels, width_ratios=width_ratios, wspace=0.15)
-    fig.suptitle(title_text, fontsize=13)
+    #ajout pour corrigé
+    # nombre de lignes réelles du titre (header + éventuel line2 + éventuel line3)
+    n_title_lines = title_text.count("\n") + 1
+    title_h = 0.08 + 0.045 * n_title_lines   # hauteur allouée, adaptative
 
-    ax1 = fig.add_subplot(gs[0, 0])
+    #fig = plt.figure(figsize=(5 * n_panels, 5))
+    fig = plt.figure(figsize=(5 * n_panels, 5 + title_h * 5))
+    #gs = fig.add_gridspec(1, n_panels, width_ratios=width_ratios, wspace=0.15)
+    gs = fig.add_gridspec(
+        2, n_panels,
+        height_ratios=[title_h, 1 - title_h],
+        width_ratios=width_ratios,
+        wspace=0.15, hspace=0.05
+    )
+    # fig.suptitle(title_text, fontsize=13)
+
+    # ax1 = fig.add_subplot(gs[0, 0])
+    # ax1.set_title("Original")
+    # ax1.imshow(input_display, cmap=cmap)
+    # ax1.axis('off')
+
+    # ax2 = fig.add_subplot(gs[0, 1])
+    # ax2.set_title("Grad-CAM Heatmap")
+    # ax2.imshow(heatmap_colored)
+    # ax2.axis('off')
+
+    # ax3 = fig.add_subplot(gs[0, 2])
+    # ax3.set_title("Grad-CAM Overlay")
+    # ax3.imshow(overlay)
+    # ax3.axis('off')
+    # --- Titre : axe dédié, indépendant des titres de subplots ---
+    ax_title = fig.add_subplot(gs[0, :])
+    ax_title.axis("off")
+    ax_title.text(0.5, 0.5, title_text, ha="center", va="center", fontsize=13)
+
+    ax1 = fig.add_subplot(gs[1, 0])
     ax1.set_title("Original")
     ax1.imshow(input_display, cmap=cmap)
     ax1.axis('off')
 
-    ax2 = fig.add_subplot(gs[0, 1])
+    ax2 = fig.add_subplot(gs[1, 1])
     ax2.set_title("Grad-CAM Heatmap")
     ax2.imshow(heatmap_colored)
     ax2.axis('off')
 
-    ax3 = fig.add_subplot(gs[0, 2])
+    ax3 = fig.add_subplot(gs[1, 2])
     ax3.set_title("Grad-CAM Overlay")
     ax3.imshow(overlay)
     ax3.axis('off')
 
     if proba is not None:
         proba = np.asarray(proba).flatten()
-        ax4 = fig.add_subplot(gs[0, 3])
+        #ax4 = fig.add_subplot(gs[0, 3])
+        ax4 = fig.add_subplot(gs[1, 3])
 
         # Vert = vraie classe, rouge = classe prédite si elle est fausse,
         # gris = les autres. Lecture immédiate de la nature de l'erreur.
@@ -765,7 +805,7 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
                 ax4.text(v + 0.02, i, label, va="center", ha="left",
                          fontsize=9, color="0.25")
 
-    fig.subplots_adjust(top=0.86)
+    #fig.subplots_adjust(top=0.86)
 
     if save_path is not None:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -774,6 +814,17 @@ def show_gradcam_overlay(input_image, heatmap, true_class=None, pred_class=None,
     #plt.show() #ne marche pas pour streamlit
     return fig #ajouté pour streamlit
 
+def display_gradcam(fig, save_path=None):
+    """
+    Affiche une figure Grad-CAM (matplotlib) générée par explain().
+    save_path : si fourni, sauvegarde la figure à ce chemin en plus de l'afficher.
+    """
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight", dpi=150)
+        print(f"Figure sauvegardée : {save_path}")
+
+    plt.show()  # ou plt.show() si fig est déjà la figure "courante"
+    #return fig
 
 ##################################################
 # Export des prédictions
