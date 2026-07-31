@@ -53,7 +53,7 @@ pages = ['Contexte'
          , 'Prétraitement des données'
          , 'Modèles explorés'
          , 'Prédiction'
-         , 'Résumé']
+         , 'Conclusion']
 
 page = st.sidebar.radio('Aller vers', pages)
 
@@ -134,7 +134,7 @@ if page == pages[1]:
         }
     )
 
-    st.dataframe(df, hide_index = True, use_container_width = True)
+    st.dataframe(df, hide_index = True, width = 'stretch')
 
     class_name = 'Normal'
 
@@ -413,7 +413,7 @@ if page == pages[4]:
         df = pd.read_csv('cnn_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
-        st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
+        st.dataframe(df.style.format("{:.2f}"), width = 'stretch')
 
     if st.session_state.selected_button == "EfficientNetB2":
         fig_mod, class_report = eff.evaluate_efficientnet_model(
@@ -438,7 +438,7 @@ if page == pages[4]:
         df = pd.read_csv('efficientnetb2_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
 
-        st.dataframe(df.style.format("{:.2f}"), use_container_width = True)
+        st.dataframe(df.style.format("{:.2f}"), width = 'stretch')
 
     if st.session_state.selected_button == "DenseNet121":
         #fig_mod, class_report = gc_densenet.explain(dense_model, X_test, y_test, img_idx)
@@ -457,9 +457,51 @@ if page == pages[4]:
         df = pd.read_csv('densenet121_final_classification_report.csv',index_col=0)
         st.header('Performances globales du modèle :')
         
-        st.dataframe(df.style.format("{:.2f}"), use_container_width = True, width='stretch')
+        st.dataframe(df.style.format("{:.2f}"), width='stretch')
 
 if page == pages[5] :
-    ### Résumé
 
-    st.write('bidule')
+    st.title("Conclusion")
+
+    st.header(f"Tableau récapitulatif :")
+
+    ### Résumé
+    df1 = pd.read_csv('cnn_final_classification_report.csv',index_col=0)
+    df2 = pd.read_csv('densenet121_final_classification_report.csv',index_col=0)
+    df3 = pd.read_csv('efficientnetb2_final_classification_report.csv',index_col=0)
+
+    df_agg = pd.concat([df1.loc[['COVID', 'macro avg']], df2.loc[['COVID', 'macro avg']], df3.loc[['COVID', 'macro avg']]], keys=['CNN', 'DenseNet121', 'EfficientNetB2'])
+    df_agg.index.names = ['Modèle', 'Classe']
+
+    styled_df = df_agg.style.background_gradient(
+        cmap="RdYlGn",
+        vmin=0.73,  # Valeur min pour le rouge pur
+        vmax=0.95,  # Valeur max pour le vert pur
+        axis=None,  # Applique le dégradé sur l'ensemble du tableau (ou axis=0 pour par colonne)
+    ).format("{:.2f}")
+
+    st.dataframe(styled_df, width = 'stretch', height = 'content')
+
+    st.markdown(
+        """
+        <div style="text-align: justify;">
+        On constate qu'EfficientNetB2 performe donc mieux que les autres modèles testés. 
+        </div>
+        <br>
+        <br>
+        """
+        , unsafe_allow_html=True
+    )
+
+    st.header(f"Pistes d'optimisations")
+
+    st.markdown(
+        """
+        <div style="text-align: justify;">
+        Afin d'affiner encore les prédictions, il serait possible de mettre en place un système de vote ou de boosting faisant intervenir les deux modèles les plus performants. De même, on peut supposer qu'un entraînement sans les contraintes techniques rencontrées, notamment sur DenseNet121, permette d'obtenir de meilleurs résultats. On peut également penser que l'entraînement de modèles plus performants, par exemple EfficientNetB7, mais également plus gourmands en ressources, permette encore d'affiner les prédictions.
+        </div>
+        <br>
+        <br>
+        """
+        , unsafe_allow_html=True
+    )
