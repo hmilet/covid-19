@@ -221,11 +221,7 @@ if page == pages[1]:
     st.markdown(
         """
         <div style="text-align: justify;">
-        Les classes sont déséquilibrées, une augmentation de données a donc été réalisée sur les trois classes minoritaires pour atteindre l'équilibre avec les paramètres suivants : 
-        
-        - RandomRotation (± 15%)
-        - RandomZoom (± 10%)
-        - RandomContrast (± 10%)
+        Les classes sont déséquilibrées : un traitement spécifique pour prendre en compte cette problématique devra donc être mis en place.
         </div>
         <br>
         <br>
@@ -325,12 +321,12 @@ if page == pages[2]:
         st.markdown(
             """
             <div style="text-align: justify;">
-            En comparant les images, on constate que l’on a des doublons au pixel près selon la distribution suivante : 
+            En comparant les images, on constate que l'on a des doublons au pixel près selon la distribution suivante : 
 
-            - COVID : <span style="color: #FF0000;">3616</span> images dont <span style="color: #FF0000;">3565</span> uniques
-            - Lung Opacity : <span style="color: #FF0000;">6012</span> images dont <span style="color: #FF0000;">6012</span> uniques
-            - Normal : <span style="color: #FF0000;">10192</span> images dont <span style="color: #FF0000;">10191</span> uniques
-            - Viral Pneumonia : <span style="color: #FF0000;">1345</span> images dont <span style="color: #FF0000;">1338</span> uniques
+            - COVID : <span style="color: #4C72B0;">3616</span> images dont <span style="color: #4C72B0;">3565</span> uniques
+            - Lung Opacity : <span style="color: #DD8452;">6012</span> images dont <span style="color: #DD8452;">6012</span> uniques
+            - Normal : <span style="color: #55A868;">10192</span> images dont <span style="color: #55A868;">10191</span> uniques
+            - Viral Pneumonia : <span style="color: #C44E52;">1345</span> images dont <span style="color: #C44E52;">1338</span> uniques
 
             Un traitement pour supprimer ces doublons est donc réalisé et également appliqué sur les mêmes index concernant les masques.
             </div>
@@ -342,20 +338,364 @@ if page == pages[2]:
 
         st.header("Redimensionnement des images")
 
+        df = pd.DataFrame(
+            {
+            "Caracéristiques": ["Résolution images", "Résolution masques"],
+            "Valeurs": ["299 x 299", "256 x 256"]
+            }
+        )
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Comme vu précédemment, les masques et les images ne sont pas à la même résolution : 
+            </div>
+            <br>
+            """
+            , unsafe_allow_html=True
+        )
+
+        st.dataframe(df, hide_index = True, width = 'stretch')
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Pour pouvoir les utiliser conjointement et ainsi ne s'intéresser qu'aux zones d'intérêt, des techniques de mise à l'échelle (<i>resize</i>) ont dû être mises en place. 
+            Deux approches ont été testées : 
+            <br>
+            <br>
+
+            - Upsizing des masques (256 x 256 -> 299 x 299) :
+
+            Pour l'upsizing, l'approche retenue est une interpolation par un algorithme Nearest ; pour déterminer la valeur d'un pixel dans l'image agrandie, elle va simplement chercher le pixel le plus proche dans l'image d'origine et copier sa valeur exacte et ne garde donc que des pixels noirs ou blancs (pas de gris).
+
+            - Downsizing des images (299 x 299 -> 256 x 256) :
+
+            L'approche retenue pour le downsizing est par une interpolation utilisant un algorithme Lanczos ; bien qu'un peu plus gourmand d'un point de vue ressource, il est globalement meilleur pour éviter de perdre des informations (pas de "flou" introduit par rapport à la méthode par défaut qui est "nearest").
+            </div>
+            <br>
+            <br>
+            """
+            , unsafe_allow_html=True
+        )
+
         st.header("Data Augmentation")
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Pour palier au déséquilibre des classes identifié précédemment, une augmentation de données a été réalisée sur les trois classes minoritaires, pour atteindre l'équilibre.
+            Les paramètres suivants ont été retenus : 
+        
+            - RandomRotation (± 15%)
+            - RandomZoom (± 10%)
+            - RandomContrast (± 10%)
+
+            Aucun flip n'a été effectué : les poumons ne peuvent pas se retrouver à l'envers sur l'imagerie (pas de flip vertical), et les deux poumons sont asymétriques à cause de la présence du coeur côté gauche (pas de flip horizontal)
+            De même, aucune déformation élastique ou cropping n'ont été réalisés pour conserver les proportions anatomiques.
+            </div>
+            """
+            , unsafe_allow_html=True
+        )        
+
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.image("X_train_base.png", caption = "Avant data augmentation",  width = 'stretch')
+
+        with col2:
+            st.image("X_train_aug.png", caption = "Après data augmentation",  width = 'stretch')
 
         st.header("Gestion des outliers")
 
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Lors de l'exploration du jeu de données, certaines images ont été identifiées comme étant très sombre ou très claires. Une option a été implémentée pour permettre d'entraîner les modèles avec ou sans ces images qui sont assimilables à des valeurs extrêmes (<i>outliers</i>).
+
+            <br>
+            <br>
+            Pour cela, l'approche choisie a été la sélection de ces outliers via un seuil (1%).
+            </div>
+            <br>
+            <br>
+            """
+            , unsafe_allow_html=True
+        )        
+
+        st.image("outliers_dark.png", width = 'stretch')
+
+        st.image("outliers_light.png", width = 'stretch')
 
 
 if page == pages[3]:
     ### Modèles explorés
-    st.write('titi')
+    options_mod = ["Random Forest", "SVM", "CNN", "DenseNet121", "EfficientNetB2"]
+
+    st.title('Modèles explorés')
+
+    model = st.menu_button(label = 'Modèle', options = options_mod)
+
+    if model == "Random Forest":
+        st.header('Random Forest :')
+        st.image('https://datasciencedojo.com/wp-content/uploads/2024/08/random-forest-algorithm-random-forest.webp',  width = 'stretch')
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Pour rester sur des temps d'entraînement acceptables sans pour sacrifier trop d'information, une <b>PCR</b> a été effectuée sur <b>500 composants (90% de la variance)</b>.
+            Pour garantir une distribution des classes dans chaque plis de données, un <b>K-Fold stratifié</b> a ensuite été appliqué pour l'entraînement.
+            Enfin, plusieurs combinaisons d'hyperparamètres ont été testés via un <b>RandomGridSearchCV</b>.
+            <br>
+            <br>
+            Les hyperparamètres retenus pour la meilleure itération sont les suivants:
+
+            <br>
+            <br>
+
+            - n_estimators = 300
+            - min_samples_split = 2
+            - min_samples_leaf = 2
+            - max_features = 0.2
+            - max_depth = 40
+
+            </div>
+            <br>
+            <br>
+            """
+            , unsafe_allow_html=True
+        ) 
+        df = pd.DataFrame(
+            {
+            "Classe": ["COVID", "Macro avg"]
+            , "Recall": ["0.31","0.66"]
+            , "F1-score" : ["0.41","0.65"]
+            }
+        )
+        st.subheader('Résultats obtenus sur ce modèle:')    
+        st.dataframe(df, hide_index = True, width = 'stretch')       
+
+    elif model == "SVM":
+        st.header('SVM :')
+        st.image('https://fr.mathworks.com/discovery/support-vector-machine/_jcr_content/thumbnail.adapt.1200.medium.jpg/1607680863365.jpg',  width = 'stretch')
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Comme pour la Random Forest, une <b>PCR</b> a été effectuée sur <b>150 composants (80% de la variance)</b>.
+            Pour garantir une distribution des classes dans chaque plis de données, un <b>K-Fold stratifié</b> a ensuite été appliqué pour l'entraînement.
+            Enfin, plusieurs combinaisons d'hyperparamètres ont été testés via un <b>GridSearchCV</b>.
+            <br>
+            <br>
+            Les hyperparamètres retenus pour la meilleure itération sont les suivants:
+
+            <br>
+            <br>
+            
+            - C = 2
+            - gamma = scale
+            - kernel = rbf
+
+
+            </div>
+            <br>
+            <br>
+            """
+            , unsafe_allow_html=True
+        ) 
+        df = pd.DataFrame(
+            {
+            "Classe": ["COVID", "Macro avg"]
+            , "Recall": ["0.44","0.72"]
+            , "F1-score" : ["0.50","0.73"]
+            }
+        )
+        st.subheader('Résultats obtenus sur ce modèle:')    
+        st.dataframe(df, hide_index = True, width = 'stretch')       
+
+    elif model == "CNN":
+        st.header('CNN :')
+        st.image('https://miro.medium.com/0*YVT_vA0cgiwkKkPX.png',  width = 'stretch')
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Toujours dans la même optique d'éviter des temps d'apprentissage trop longs, une <b>fonction de rappel (callback)</b> a été mise en place basée sur un <b>EarlyStopping avec une patience à 30</b> et un <b>suivi de la perte de validation</b> en récupérant les meilleurs poids.
+            Plusieurs batch sizes ont été testées empiriquement pour voir ce que la machine utilisée pouvait supporter. 
+            Les tests ont également été réalisés sur différentes tailles d'images (via des couches de resize dans le CNN). 
+            Enfin, les données d'entraînement ont été séparées en <b>80% de données d'entraînement et 20% de données de validation</b>.
+            <br>
+            <br>
+            Ce modèle dit “baseline” est constitué des couches suivantes :
+
+            <br>
+            <br>
+
+            - Couche de rescaling
+            - Couches de resize (optionnelles)
+            - Couche de convolution, kernel size(3,3) avec 32 neurones, activation ReLU
+            - Couche de MaxPooling avec pool size (2,2)
+            - Couche de convolution, kernel size (3,3) avec 64 neurones, activation ReLU
+            - Couche de MaxPooling avec pool size (2,2)
+            - Couche de convolution, kernel size (3,3) avec 128 neurones, activation ReLU
+            - Couche de MaxPooling avec pool size (2,2)
+            - Couche Flatten
+            - Couche Dense avec 128 neurones, activation ReLU
+            - Couche Dropout 50% permettant d’éviter l’overfitting
+            - Couche Dense à 4 neurones, activation Softmax
+
+            </div>
+            <br>
+            <br>
+
+            """
+            , unsafe_allow_html=True
+        ) 
+        df = pd.DataFrame(
+            {
+            "Classe": ["COVID", "Macro avg"]
+            , "Recall": ["0.49","0.77"]
+            , "F1-score" : ["0.56","0.78"]
+            }
+        )
+        st.subheader('Résultats obtenus sur ce modèle:')    
+        st.dataframe(df, hide_index = True, width = 'stretch')    
+    elif model == "DenseNet121":
+        st.header('DenseNet121 :')
+        st.image('https://pytorch.org/wp-content/uploads/2025/01/densenet1.png',  width = 'stretch')
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Une autre approche que d’utiliser un modèle "from scratch" est d'utiliser un modèle qui a déjà été entraîné, même sur d'autres tâches de classification. 
+            On parle alors de transfer learning. Cela permet généralement d'avoir de meilleurs résultats, ces modèles pré-entraînés possédant de bonnes capacités de généralisation.
+            On choisit ici d'utiliser cette approche sur le modèle DenseNet121.
+            <br>
+            <br>
+            La structure du modèle réutilisant DenseNet121 est la suivante :
+
+            <br>
+            <br>
+
+            - Couche de conversion grayscale vers RGB
+            - Modèle de base DenseNet121
+            - Couche de pooling
+            - Couche Dropout 30%
+            - Couche Dense 256 neurones, activation ReLU
+            - Couche Dropout 30%
+            - Couche Dense 4 neurones, activation Softmax
+
+
+
+            <br>
+            <br>
+
+            
+            Le modèle est entraîné une première fois avec le modèle de base gelé, sur quelques epochs avec learning rate à 10<sup>-3</sup> puis à nouveau en réduisant le learning rate lors du fine tuning à 10<sup>-4</sup>.
+            Tout comme pour le CNN, on utilise une fonction de rappel basée sur un <b>EarlyStopping</b> avec une <b>patience à 15</b> sur le <b>F1-score de validation</b>.
+
+            </div>
+
+            <br>
+            <br>
+
+            """
+            , unsafe_allow_html=True
+        ) 
+        df = pd.DataFrame(
+            {
+            "Classe": ["COVID", "Macro avg"]
+            , "Recall": ["0.81","0.88"]
+            , "F1-score" : ["0.83","0.89"]
+            }
+        )
+        st.subheader('Résultats obtenus sur ce modèle:')    
+        st.dataframe(df, hide_index = True, width = 'stretch')    
+    elif model == "EfficientNetB2":
+        st.header('EfficientNetB2 :')
+        st.image('https://1.bp.blogspot.com/-Cdtb97FtgdA/XO3BHsB7oEI/AAAAAAAAEKE/bmtkonwgs8cmWyI5esVo8wJPnhPLQ5bGQCLcBGAs/s1600/image4.png',  width = 'stretch')
+
+        st.markdown(
+            """
+            <div style="text-align: justify;">
+            Enfin, en se basant sur de la bibliographie existante, le modèle pré-entraîné EfficientNet semble être un excellent candidat concernant la classification d’imagerie médicale pulmonaire par pathologie.
+            Le modèle EfficientNetB2 a été choisi pour sa proximité avec la taille des images utilisées (256 x 256 contre 260 x 260 pour le modèle B2) mais des performances supérieures auraient potentiellement pu être obtenues avec un modèle supérieur, typiquement EfficientNetB7. Ce dernier a été entraîné sur des images 600 x 600 et nécessite une quantité de VRAM bien supérieure à ce qui était disponible de notre côté pour vérifier cette hypothèse.
+            <br>
+            <br>
+            La structure du modèle réutilisant EfficientNetB2 est la suivante :
+
+            <br>
+            <br>
+
+            - Couche de convulation avec 3 neurones, pas d'activation, kernel size (1,1)
+            - Modèle de base EfficientNetB2 (inclut les couches de pooling)
+            - Couche Dropout 30%
+            - Couche Dense à 4 neurones, activation Softmax
+
+            <br>
+            <br>
+
+            
+            Le modèle est entraîné une première fois avec le modèle de base gelé, sur quelques epochs avec learning rate à 10<sup>-3</sup> puis à nouveau en réduisant le learning rate lors du fine tuning à 10<sup>-5</sup>.
+            Comme pour le CNN, on utilise une fonction de rappel basée sur un <b>EarlyStopping</b> avec une <b>patience à 50</b> sur la <b>perte de validation</b>.
+
+            </div>
+
+            <br>
+            <br>
+
+            """
+            , unsafe_allow_html=True
+        ) 
+        df = pd.DataFrame(
+            {
+            "Classe": ["COVID", "Macro avg"]
+            , "Recall": ["0.91","0.93"]
+            , "F1-score" : ["0.92","0.93"]
+            }
+        )
+        st.subheader('Résultats obtenus sur ce modèle:')    
+        st.dataframe(df, hide_index = True, width = 'stretch')  
+
+    if "selected_button" in st.session_state and st.session_state.selected_button not in options_mod:
+        del st.session_state.selected_button
+
+
+
+    # def set_model_2(name):
+    #     st.session_state.model_choice_2 = name
+
+    # if "model_choice" not in st.session_state:
+    #     st.session_state.model_choice_2 = "Random Forest"
+
+    # cols = st.columns(len(options_mod))
+
+    # for i, option_mod in enumerate(options_mod):
+    #     with cols[i]:
+    #         # Le bouton prend le style "primary" SEULEMENT si son nom correspond à l'option active
+    #         #is_selected = (st.session_state.selected_button == option)
+    #         is_selected = (st.session_state.model_choice_2 == option_mod)
+            
+    #         #if st.button(
+    #         st.button(
+    #             option_mod, 
+    #             key=f"btn_2_{i}", 
+    #             width = 'stretch',
+    #             type="primary" if is_selected else "secondary",
+    #             on_click=set_model_2,
+    #             args=(option_mod,)
+    #         )
+
+
+        
+        
+        
 
 if page == pages[4]:
     ### Prédiction
 
-    if "selected_button" in st.session_state and st.session_state.selected_button in ["Normal", "COVID", "Lung Opacity", "Viral Pneumonia"]:
+    options = ["CNN", "DenseNet121", "EfficientNetB2"]
+
+    if "selected_button" in st.session_state and st.session_state.selected_button not in options:
         del st.session_state.selected_button
 
     st.title("Prédiction")
@@ -372,10 +712,10 @@ if page == pages[4]:
     def set_model(name):
         st.session_state.model_choice = name
 
-    if "model_choice" not in st.session_state:
-        st.session_state.model_choice = "CNN"
+    
 
-    options = ["CNN", "DenseNet121", "EfficientNetB2"]
+    if "model_choice" not in st.session_state or st.session_state.model_choice not in options:
+        st.session_state.model_choice = "CNN"
 
     # Affichage des 4 boutons côte à côte
     cols = st.columns(len(options))
@@ -631,7 +971,7 @@ if page == pages[5] :
 
     st.title("Conclusion")
 
-    st.header(f"Tableau récapitulatif :")
+    st.header(f"Récapitulatif")
 
     ### Résumé
     df1 = pd.read_csv('cnn_final_classification_report.csv',index_col=0)
@@ -653,7 +993,8 @@ if page == pages[5] :
     st.markdown(
         """
         <div style="text-align: justify;">
-        On constate qu'EfficientNetB2 performe donc mieux que les autres modèles testés. 
+        Les deux modèles effectuant du <i>transfer learning</i> ont des performances supérieures au modèle dit <i>baseline</i> et également bien supérieurs aux modèles de machine learning classique.
+        On constate qu'EfficientNetB2 performe également mieux que les autres modèles testés. Cela est cohérent avec les résultats déjà obtenus dans la littérature sur des problématiques similaires.
         </div>
         <br>
         <br>
@@ -667,6 +1008,23 @@ if page == pages[5] :
         """
         <div style="text-align: justify;">
         Afin d'affiner encore les prédictions, il serait possible de mettre en place un système de vote ou de boosting faisant intervenir les deux modèles les plus performants. De même, on peut supposer qu'un entraînement sans les contraintes techniques rencontrées, notamment sur DenseNet121, permette d'obtenir de meilleurs résultats. On peut également penser que l'entraînement de modèles plus performants, par exemple EfficientNetB7, mais également plus gourmands en ressources, permette encore d'affiner les prédictions.
+        </div>
+        <br>
+        <br>
+        """
+        , unsafe_allow_html=True
+    )
+
+    st.header(f"Difficultés rencontrées")
+
+    st.markdown(
+        """
+        <div style="text-align: justify;">
+        Une des difficultés principales consiste à tenter d’interpréter les résultats. Malgré les GradCAM, qui, s’ils permettent de vérifier si le modèle s’intéresse à des zones cohérentes, il n’est pas aisé de savoir si les zones choisies sont cohérentes d’un point de vue médical. Seules une expertise métier permettrait de réellement valider les zones ciblées. On doit donc se contenter des performances brutes du modèle pour ces analyses.
+        <br>
+        <br>
+        De par la nature du jeu de données (grand nombre d’images de taille modérée), la consommation de la mémoire vive ainsi que de la mémoire vidéo peuvent se retrouver assez vite saturée. Quelques optimisations, notamment sur les types de données utilisées dans les numpy arrays (float32 vs uint8) ont permis de soulager les systèmes. Cela a aussi eu un impact sur les modèles, notamment de transfer learning, qui ont pû être sélectionnés ou sur les stratégies d’entraînement (subsampling pour maintenir un temps de traitement acceptable). Enfin, le modèle DenseNet121 nécessite une étape de normalisation qui nous a obligé à utiliser des float32, ayant un impact direct sur la mémoire utilisée ; EfficientNetB2 n’ayant pas cette contrainte, cela rend son utilisation plus simple.
+                
         </div>
         <br>
         <br>
