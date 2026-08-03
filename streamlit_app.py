@@ -454,7 +454,7 @@ if page == pages[3]:
         st.markdown(
             """
             <div style="text-align: justify;">
-            Pour rester sur des temps d'entraînement acceptables sans pour sacrifier trop d'information, une <b>PCR</b> a été effectuée sur <b>500 composants (90% de la variance)</b>.
+            Pour rester sur des temps d'entraînement acceptables sans pour sacrifier trop d'information, une <b>PCA</b> a été effectuée sur <b>500 composants (90% de la variance)</b>.
             Pour garantir une distribution des classes dans chaque plis de données, un <b>K-Fold stratifié</b> a ensuite été appliqué pour l'entraînement.
             Enfin, plusieurs combinaisons d'hyperparamètres ont été testés via un <b>RandomGridSearchCV</b>.
             <br>
@@ -492,7 +492,7 @@ if page == pages[3]:
         st.markdown(
             """
             <div style="text-align: justify;">
-            Comme pour la Random Forest, une <b>PCR</b> a été effectuée sur <b>150 composants (80% de la variance)</b>.
+            Comme pour la Random Forest, une <b>PCA</b> a été effectuée sur <b>150 composants (80% de la variance)</b>.
             Pour garantir une distribution des classes dans chaque plis de données, un <b>K-Fold stratifié</b> a ensuite été appliqué pour l'entraînement.
             Enfin, plusieurs combinaisons d'hyperparamètres ont été testés via un <b>GridSearchCV</b>.
             <br>
